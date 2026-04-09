@@ -374,7 +374,7 @@ export const missions: Mission[] = [
     unit: 'Unit 1',
     duration: '60 min',
     xp: 105,
-    mentor: 'classer',
+    mentor: 'byte',
     examWeight: 'Objects and instance methods unlock later FRQs',
     focus: 'objects, instantiation, instance methods',
     officialTopics: ['1.12', '1.13', '1.14'],

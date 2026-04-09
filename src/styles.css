@@ -108,7 +108,8 @@ input {
 
 .hud-brand,
 .hud-stats,
-.lesson-mentor {
+.lesson-mentor,
+.unit-mentor {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -164,6 +165,23 @@ input {
 .hud-pill.gems {
   color: #5e43db;
   background: #f0ebff;
+}
+
+.hud-nav {
+  min-height: 42px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 2px solid #d7e7f4;
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.hud-nav.active {
+  background: #eef8e8;
+  border-color: #cde5bf;
+  color: #2f7d25;
 }
 
 .hero-banner {
@@ -320,6 +338,115 @@ input {
   margin-bottom: 18px;
 }
 
+.level-grid,
+.home-world-grid,
+.world-stack,
+.lesson-list {
+  display: grid;
+  gap: 18px;
+}
+
+.level-grid,
+.home-world-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+
+.world-stack,
+.lesson-list {
+  grid-template-columns: 1fr;
+}
+
+.level-card,
+.home-world-card,
+.lesson-route-card,
+.pathway-header,
+.lesson-list-card {
+  text-align: left;
+}
+
+.level-card,
+.lesson-list-card {
+  border: 2px solid var(--border);
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.level-card {
+  padding: 22px;
+}
+
+.level-card.active {
+  border-color: #ffd270;
+  background: #fff8e7;
+}
+
+.level-card h2,
+.pathway-header h1 {
+  margin: 0 0 10px;
+  font-size: clamp(1.8rem, 3vw, 3rem);
+  line-height: 1;
+}
+
+.level-card strong {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 1.05rem;
+}
+
+.home-world-card,
+.lesson-route-card,
+.pathway-header {
+  padding: 24px;
+}
+
+.pathway-page {
+  display: grid;
+  gap: 18px;
+}
+
+.lesson-route-head,
+.lesson-list-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.world-description {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.lesson-list-card {
+  padding: 20px;
+  border-radius: 24px;
+}
+
+.lesson-list-card.active {
+  border-color: #72c7ff;
+  background: #eef9ff;
+}
+
+.lesson-list-card.complete {
+  border-color: #bde5a0;
+}
+
+.lesson-list-card strong {
+  display: block;
+  margin: 12px 0 8px;
+  font-size: 1.1rem;
+}
+
+.lesson-list-card p,
+.home-world-card p,
+.level-card p,
+.lesson-route-card p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 .summary-card {
   padding: 20px;
 }
@@ -390,6 +517,40 @@ input {
   gap: 14px;
   align-items: start;
   margin-bottom: 20px;
+}
+
+.unit-head-aside {
+  display: grid;
+  gap: 12px;
+  justify-items: end;
+}
+
+.unit-mentor {
+  padding: 10px 12px;
+  border-radius: 20px;
+  border: 2px solid #dcebf5;
+  background: #f9fdff;
+}
+
+.unit-mentor-sprite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  border: 2px solid #dcebf5;
+  background: linear-gradient(180deg, #effcff, #f4fde9);
+}
+
+.unit-mentor strong,
+.unit-mentor p {
+  margin: 0;
+}
+
+.unit-mentor p {
+  color: var(--muted);
+  font-size: 0.92rem;
 }
 
 .path-section h2,
@@ -896,6 +1057,26 @@ input {
   white-space: pre-wrap;
 }
 
+.token-keyword {
+  color: #7fd7ff;
+}
+
+.token-type {
+  color: #9ad96f;
+}
+
+.token-string {
+  color: #ffd47c;
+}
+
+.token-number {
+  color: #ffb38d;
+}
+
+.token-comment {
+  color: #7ba2c8;
+}
+
 .editor-inline-input {
   min-width: 132px;
   min-height: 30px;
@@ -992,6 +1173,46 @@ input {
   color: #eff7ff;
   font-family: 'IBM Plex Mono', monospace;
   white-space: pre-wrap;
+}
+
+.terminal-log {
+  color: #9ee4b0;
+}
+
+.mentor-debug-panel {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+  background: linear-gradient(180deg, #f4fbff, #ffffff);
+  border-top: 2px solid #dcebf5;
+}
+
+.mentor-debug-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 78px;
+  height: 78px;
+  border-radius: 20px;
+  border: 2px solid #dcebf5;
+  background: #f7fcff;
+}
+
+.mentor-debug-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.mentor-debug-copy p,
+.mentor-debug-copy strong {
+  margin: 0;
+}
+
+.mentor-debug-copy p {
+  color: var(--muted);
+  line-height: 1.55;
 }
 
 .blank-grid {
@@ -1096,7 +1317,9 @@ input {
 @media (max-width: 1180px) {
   .hero-banner,
   .course-layout,
-  .summary-strip {
+  .summary-strip,
+  .level-grid,
+  .home-world-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1129,6 +1352,10 @@ input {
     align-items: stretch;
   }
 
+  .unit-head-aside {
+    justify-items: start;
+  }
+
   .hud-stats {
     justify-content: flex-start;
   }
@@ -1143,6 +1370,12 @@ input {
 
   .practice-controls {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .lesson-route-head,
+  .lesson-list-card-top {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .path-step.left,

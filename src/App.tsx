@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import PixelSprite from './components/PixelSprite';
 import {
   examBlueprint,
+  type FillBlank,
   frqBlueprint,
   mentorRoster,
   missions,
@@ -14,12 +15,21 @@ import {
   type PracticeChallenge,
 } from './data/practiceDecks';
 import { lessonGuides } from './data/lessonGuides';
+import {
+  courseLevels,
+  journeyUnits,
+  totalJourneyMinutes,
+  type CourseLevel,
+  type JourneyLesson,
+  type JourneyUnit,
+} from './data/journey';
 
 type QuizSelections = Record<string, string>;
 type QuizSubmissions = Record<string, boolean>;
 type FillInputs = Record<string, Record<string, string>>;
 type FillSubmissions = Record<string, boolean>;
 type MissionSubstepKind = 'brief' | 'concept' | 'boss' | 'quiz' | 'fill';
+type AppPage = 'home' | 'pathway' | 'lesson';
 
 const storageKey = 'morcsa-progress-v1';
 
@@ -39,6 +49,8 @@ type MissionSubstep = {
   done: boolean;
   challenge?: Mission['challenges'][number];
 };
+
+type MentorProfile = (typeof mentorRoster)[keyof typeof mentorRoster];
 
 function normalize(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -203,13 +215,129 @@ function getEditorFileName(challengeId: string) {
   return `Mission${missionNumber}.java`;
 }
 
+function getMissionById(missionId: string) {
+  return missions.find((mission) => mission.id === missionId) ?? missions[0];
+}
+
+function getPracticeSectionById(sectionId: string) {
+  return (
+    sectionPracticeDecks.find((section) => section.id === sectionId) ??
+    sectionPracticeDecks[0]
+  );
+}
+
+function getLessonPracticeChallenges(lesson: JourneyLesson) {
+  const section = getPracticeSectionById(lesson.practiceSectionId);
+  return section.challenges.slice(
+    lesson.practiceStart,
+    lesson.practiceStart + lesson.practiceCount,
+  );
+}
+
+function renderSyntaxSegment(segment: string, keyBase: string): ReactNode[] {
+  const tokenPattern =
+    /("(?:[^"\\]|\\.)*"|\/\/.*|\b(?:public|private|protected|class|static|void|int|double|boolean|String|if|else|for|while|return|new|true|false)\b|\b\d+(?:\.\d+)?\b)/g;
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let matchIndex = 0;
+
+  for (const match of segment.matchAll(tokenPattern)) {
+    const token = match[0];
+    const start = match.index ?? 0;
+
+    if (start > lastIndex) {
+      nodes.push(
+        <span key={`${keyBase}-plain-${matchIndex}`}>
+          {segment.slice(lastIndex, start)}
+        </span>,
+      );
+    }
+
+    let tokenClass = 'token-keyword';
+    if (token.startsWith('"')) {
+      tokenClass = 'token-string';
+    } else if (token.startsWith('//')) {
+      tokenClass = 'token-comment';
+    } else if (/^\d/.test(token)) {
+      tokenClass = 'token-number';
+    } else if (/^(int|double|boolean|String|void)$/.test(token)) {
+      tokenClass = 'token-type';
+    }
+
+    nodes.push(
+      <span className={tokenClass} key={`${keyBase}-token-${matchIndex}`}>
+        {token}
+      </span>,
+    );
+    lastIndex = start + token.length;
+    matchIndex += 1;
+  }
+
+  if (lastIndex < segment.length) {
+    nodes.push(
+      <span key={`${keyBase}-tail`}>{segment.slice(lastIndex)}</span>,
+    );
+  }
+
+  return nodes;
+}
+
+function getBlankMentorHint(blank: FillBlank, lineNumber: number, value: string) {
+  const label = blank.label.toLowerCase();
+
+  if (value.trim().length === 0) {
+    return `Line ${lineNumber} still has an empty ${blank.label}. Fill that slot before you run the program again.`;
+  }
+
+  if (label.includes('method')) {
+    return `Line ${lineNumber} needs the right Java method name there. Re-check which object or class should be doing the work.`;
+  }
+
+  if (label.includes('comparison operator')) {
+    return `Line ${lineNumber} has the wrong comparison boundary. Decide whether the condition should include equality or not.`;
+  }
+
+  if (label.includes('operator')) {
+    return `Line ${lineNumber} uses the wrong operator. Match the operator to the logic the line is trying to express.`;
+  }
+
+  if (label.includes('keyword')) {
+    return `Line ${lineNumber} needs a Java keyword, not a variable name or method call.`;
+  }
+
+  if (label.includes('update')) {
+    return `Line ${lineNumber} is not updating the control variable the way this loop needs.`;
+  }
+
+  if (label.includes('type') || label.includes('cast')) {
+    return `Line ${lineNumber} is a type-syntax spot. Match the Java type to the kind of value being stored or returned.`;
+  }
+
+  if (label.includes('arraylist')) {
+    return `Line ${lineNumber} should use an ArrayList method, not array-style syntax.`;
+  }
+
+  if (label.includes('boolean')) {
+    return `Line ${lineNumber} should evaluate to a true/false idea. Re-check the boolean logic in that slot.`;
+  }
+
+  return `Line ${lineNumber} is close, but that ${blank.label} does not match the Java idea this challenge is testing.`;
+}
+
 function App() {
-  const practicePageSize = 5;
   const storedProgress = readStoredProgress();
-  const [selectedMissionId, setSelectedMissionId] = useState(missions[0].id);
+  const [page, setPage] = useState<AppPage>('home');
+  const [selectedLevelId, setSelectedLevelId] = useState(
+    courseLevels.find((level) => level.recommended)?.id ?? courseLevels[0].id,
+  );
+  const allJourneyLessons = useMemo(
+    () => journeyUnits.flatMap((unit) => unit.lessons),
+    [],
+  );
+  const [selectedLessonId, setSelectedLessonId] = useState(allJourneyLessons[0].id);
   const [selectedSubstepId, setSelectedSubstepId] = useState(() =>
     getDefaultMissionSubstepId(
-      missions[0],
+      getMissionById(allJourneyLessons[0].missionId),
       storedProgress.quizSelections,
       storedProgress.fillInputs,
     ),
@@ -226,23 +354,17 @@ function App() {
   const [fillSubmissions, setFillSubmissions] = useState<FillSubmissions>(
     storedProgress.fillSubmissions,
   );
-  const [practicePage, setPracticePage] = useState(0);
 
-  const missionStates = useMemo(
-    () =>
-      missions.map((mission) => ({
-        mission,
-        complete: isMissionComplete(mission, quizSelections, fillInputs),
-      })),
-    [fillInputs, quizSelections],
-  );
-
-  const selectedMission =
-    missionStates.find((state) => state.mission.id === selectedMissionId)
-      ?.mission ?? missions[0];
-  const selectedMissionIndex = missions.findIndex(
-    (mission) => mission.id === selectedMission.id,
-  );
+  const selectedLevel =
+    courseLevels.find((level) => level.id === selectedLevelId) ?? courseLevels[0];
+  const selectedLesson =
+    allJourneyLessons.find((lesson) => lesson.id === selectedLessonId) ??
+    allJourneyLessons[0];
+  const selectedUnit =
+    journeyUnits.find((unit) => unit.id === selectedLesson.unitId) ?? journeyUnits[0];
+  const selectedMission = getMissionById(selectedLesson.missionId);
+  const selectedMentor = mentorRoster[selectedUnit.mentorKey];
+  const selectedLessonGuide = lessonGuides[selectedMission.id];
   const selectedMissionSubsteps = useMemo(
     () => buildMissionSubsteps(selectedMission, quizSelections, fillInputs),
     [fillInputs, quizSelections, selectedMission],
@@ -258,120 +380,95 @@ function App() {
     selectedSubstep.kind === 'fill' && selectedSubstep.challenge?.type === 'fill'
       ? selectedSubstep.challenge
       : undefined;
-  const selectedLessonGuide = lessonGuides[selectedMission.id];
-  const selectedPracticeSection =
-    sectionPracticeDecks.find((section) => section.unit === selectedMission.unit) ??
-    sectionPracticeDecks[sectionPracticeDecks.length - 1];
-  const practicePageCount = Math.ceil(
-    selectedPracticeSection.challenges.length / practicePageSize,
+  const lessonPracticeChallenges = useMemo(
+    () => getLessonPracticeChallenges(selectedLesson),
+    [selectedLesson],
   );
-  const practiceStart = practicePage * practicePageSize;
-  const visiblePracticeChallenges = selectedPracticeSection.challenges.slice(
-    practiceStart,
-    practiceStart + practicePageSize,
-  );
+  const selectedPracticeSection = getPracticeSectionById(selectedLesson.practiceSectionId);
+  const selectedPracticeCorrect = lessonPracticeChallenges.filter((challenge) =>
+    isChallengeCorrect(challenge, quizSelections, fillInputs),
+  ).length;
 
-  const scoredChallengeIds = useMemo(
-    () =>
-      [
-        ...missions.flatMap((mission) =>
-          mission.challenges.map((challenge) => challenge.id),
-        ),
-        ...sectionPracticeDecks.flatMap((section) =>
-          section.challenges.map((challenge) => challenge.id),
-        ),
-      ],
-    [],
-  );
-
-  const totalXp = missions.reduce((sum, mission) => sum + mission.xp, 0);
-  const completedMissions = missionStates.filter((state) => state.complete).length;
-
-  const earnedXp = missionStates.reduce(
-    (sum, state) => sum + (state.complete ? state.mission.xp : 0),
-    0,
-  );
-
-  const correctCount =
-    missions.reduce((sum, mission) => {
-      return (
-        sum +
-        mission.challenges.filter((challenge) =>
-          isChallengeCorrect(challenge, quizSelections, fillInputs),
-        ).length
-      );
-    }, 0) +
-    sectionPracticeDecks.reduce((sum, section) => {
-      return (
-        sum +
-        section.challenges.filter((challenge) =>
-          isChallengeCorrect(challenge, quizSelections, fillInputs),
-        ).length
-      );
-    }, 0);
-
-  const answeredCount = scoredChallengeIds.filter((challengeId) => {
-    if (quizSelections[challengeId]) {
+  const uniqueTrackedChallenges = useMemo(() => {
+    const seen = new Set<string>();
+    return [
+      ...missions.flatMap((mission) => mission.challenges),
+      ...allJourneyLessons.flatMap((lesson) => getLessonPracticeChallenges(lesson)),
+    ].filter((challenge) => {
+      if (seen.has(challenge.id)) {
+        return false;
+      }
+      seen.add(challenge.id);
       return true;
+    });
+  }, [allJourneyLessons]);
+
+  const answeredCount = uniqueTrackedChallenges.filter((challenge) => {
+    if (challenge.type === 'quiz') {
+      return Boolean(quizSelections[challenge.id]);
     }
 
-    return Boolean(fillSubmissions[challengeId]);
+    return Boolean(fillSubmissions[challenge.id]);
   }).length;
 
-  const readiness = Math.round((correctCount / scoredChallengeIds.length) * 100);
-  const streak = missionStates.reduce((count, state) => {
-    if (count !== missionStates.indexOf(state)) {
-      return count;
-    }
-    return state.complete ? count + 1 : count;
-  }, 0);
+  const correctCount = uniqueTrackedChallenges.filter((challenge) =>
+    isChallengeCorrect(challenge, quizSelections, fillInputs),
+  ).length;
+  const readiness = Math.round((correctCount / uniqueTrackedChallenges.length) * 100);
 
-  const firstIncompleteIndex = missionStates.findIndex((state) => !state.complete);
-  const nextMission =
-    missionStates[firstIncompleteIndex === -1 ? missions.length - 1 : firstIncompleteIndex]
-      .mission;
-  const unlockedIndex =
-    firstIncompleteIndex === -1
-      ? missions.length - 1
-      : Math.min(firstIncompleteIndex + 1, missions.length - 1);
+  const lessonCompletion = useMemo(
+    () =>
+      allJourneyLessons.map((lesson) => {
+        const mission = getMissionById(lesson.missionId);
+        const practice = getLessonPracticeChallenges(lesson);
+        const complete =
+          mission.challenges.every((challenge) =>
+            isChallengeCorrect(challenge, quizSelections, fillInputs),
+          ) &&
+          practice.every((challenge) =>
+            isChallengeCorrect(challenge, quizSelections, fillInputs),
+          );
 
-  const currentIncorrectChecks = selectedMission.challenges.reduce(
-    (sum, challenge) => {
-      if (challenge.type === 'quiz') {
-        if (!quizSubmissions[challenge.id]) {
-          return sum;
-        }
-
-        return quizSelections[challenge.id] === challenge.answer ? sum : sum + 1;
-      }
-
-      if (!fillSubmissions[challenge.id]) {
-        return sum;
-      }
-
-      return isFillBlankCorrect(challenge, fillInputs[challenge.id]) ? sum : sum + 1;
-    },
-    0,
+        return { lesson, complete };
+      }),
+    [allJourneyLessons, fillInputs, quizSelections],
   );
 
-  const hearts = Math.max(1, 5 - currentIncorrectChecks);
-  const gems = completedMissions * 15 + Math.round(readiness / 5);
-
-  const unitSections = useMemo(() => {
-    return missions.reduce<Array<{ unit: string; missions: Mission[] }>>(
-      (sections, mission) => {
-        const existing = sections.find((section) => section.unit === mission.unit);
-        if (existing) {
-          existing.missions.push(mission);
-          return sections;
+  const completedLessons = lessonCompletion.filter((item) => item.complete).length;
+  const firstIncompleteLesson = lessonCompletion.find((item) => !item.complete);
+  const nextLesson = firstIncompleteLesson?.lesson ?? allJourneyLessons[allJourneyLessons.length - 1];
+  const lessonIndex = allJourneyLessons.findIndex(
+    (lesson) => lesson.id === selectedLesson.id,
+  );
+  const streak = lessonCompletion.reduce((count, item, index) => {
+    if (count !== index) {
+      return count;
+    }
+    return item.complete ? count + 1 : count;
+  }, 0);
+  const earnedXp = completedLessons * 120;
+  const hearts = Math.max(
+    1,
+    5 -
+      selectedMission.challenges.reduce((sum, challenge) => {
+        if (challenge.type === 'quiz') {
+          if (!quizSubmissions[challenge.id]) {
+            return sum;
+          }
+          return quizSelections[challenge.id] === challenge.answer ? sum : sum + 1;
         }
-
-        sections.push({ unit: mission.unit, missions: [mission] });
-        return sections;
-      },
-      [],
-    );
-  }, []);
+        if (!fillSubmissions[challenge.id]) {
+          return sum;
+        }
+        return isFillBlankCorrect(challenge, fillInputs[challenge.id]) ? sum : sum + 1;
+      }, 0),
+  );
+  const gems = completedLessons * 20 + Math.round(readiness / 4);
+  const currentMissionProgress = `${
+    selectedMission.challenges.filter((challenge) =>
+      isChallengeCorrect(challenge, quizSelections, fillInputs),
+    ).length
+  }/${selectedMission.challenges.length}`;
 
   useEffect(() => {
     try {
@@ -389,16 +486,6 @@ function App() {
     }
   }, [fillInputs, fillSubmissions, quizSelections, quizSubmissions]);
 
-  const selectedMentor = mentorRoster[selectedMission.mentor];
-  const currentMissionProgress = `${
-    selectedMission.challenges.filter((challenge) =>
-      isChallengeCorrect(challenge, quizSelections, fillInputs),
-    ).length
-  }/${selectedMission.challenges.length}`;
-  const selectedPracticeCorrect = selectedPracticeSection.challenges.filter((challenge) =>
-    isChallengeCorrect(challenge, quizSelections, fillInputs),
-  ).length;
-
   useEffect(() => {
     if (!selectedMissionSubsteps.some((step) => step.id === selectedSubstepId)) {
       setSelectedSubstepId(
@@ -413,15 +500,16 @@ function App() {
     selectedSubstepId,
   ]);
 
-  useEffect(() => {
-    setPracticePage(0);
-  }, [selectedPracticeSection.id]);
-
-  function selectMission(mission: Mission) {
-    setSelectedMissionId(mission.id);
+  function openLesson(lesson: JourneyLesson) {
+    setSelectedLessonId(lesson.id);
     setSelectedSubstepId(
-      getDefaultMissionSubstepId(mission, quizSelections, fillInputs),
+      getDefaultMissionSubstepId(
+        getMissionById(lesson.missionId),
+        quizSelections,
+        fillInputs,
+      ),
     );
+    setPage('lesson');
   }
 
   return (
@@ -446,6 +534,27 @@ function App() {
           </div>
 
           <div className="hud-stats">
+            <button
+              className={`hud-nav ${page === 'home' ? 'active' : ''}`}
+              onClick={() => setPage('home')}
+              type="button"
+            >
+              Home
+            </button>
+            <button
+              className={`hud-nav ${page === 'pathway' ? 'active' : ''}`}
+              onClick={() => setPage('pathway')}
+              type="button"
+            >
+              Pathway
+            </button>
+            <button
+              className={`hud-nav ${page === 'lesson' ? 'active' : ''}`}
+              onClick={() => setPage('lesson')}
+              type="button"
+            >
+              Lesson
+            </button>
             <div className="hud-pill hearts">Hearts {hearts}/5</div>
             <div className="hud-pill streak">Streak {streak}</div>
             <div className="hud-pill xp">{earnedXp} XP</div>
@@ -453,436 +562,429 @@ function App() {
           </div>
         </header>
 
-        <section className="hero-banner card">
-          <div className="hero-copy">
-            <p className="eyebrow">Duolingo energy, APCSA brain</p>
-            <h1>Pixel-path your way to a 5 in AP Computer Science A.</h1>
-            <p className="hero-text">
-              Short lessons. Immediate feedback. Fill-in-code reps. Pixel art
-              mentors. Real APCSA topics from variables and loops to FRQs,
-              ArrayLists, and 2D arrays.
-            </p>
+        {page === 'home' ? (
+          <>
+            <section className="hero-banner card">
+              <div className="hero-copy">
+                <p className="eyebrow">Real course flow, not a one-page mockup</p>
+                <h1>Pick a level, enter the pathway, then study each lesson on its own screen.</h1>
+                <p className="hero-text">
+                  MorCSA now follows a real structure: choose your route, browse the
+                  four APCSA worlds, then open a dedicated lesson page with teaching,
+                  IDE practice, and a targeted drill pack sized for actual study time.
+                </p>
 
-            <div className="hero-actions">
-              <button
-                className="primary-button hero-button"
-                onClick={() => selectMission(nextMission)}
-                type="button"
-              >
-                Continue {nextMission.title}
-              </button>
-              <div className="hero-badges">
-                <span className="pill">10-hour path</span>
-                <span className="pill">42 MCQ + 4 FRQ aware</span>
-                <span className="pill">Pixel mentors</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="hero-stage">
-            <div className="speech-bubble">
-              <strong>{selectedMentor.name}</strong>
-              <p>
-                Keep the streak alive. Clear one lesson at a time and the full
-                APCSA map starts feeling very beatable.
-              </p>
-            </div>
-
-            <div className="stage-party">
-              {Object.values(mentorRoster).map((mentor) => (
-                <div className="stage-mentor" key={mentor.name}>
-                  <PixelSprite
-                    label={mentor.name}
-                    palette={mentor.palette}
-                    pixels={mentor.pixels}
-                    pixelSize={10}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="summary-strip">
-          <article className="card summary-card">
-            <span className="summary-label">Course progress</span>
-            <strong>
-              {completedMissions}/{missions.length} lessons mastered
-            </strong>
-            <div className="meter">
-              <span style={{ width: `${Math.max(readiness, 8)}%` }} />
-            </div>
-            <p>
-              Readiness score: {readiness}% · Checks answered: {answeredCount}/
-              {scoredChallengeIds.length}
-            </p>
-          </article>
-
-          <article className="card summary-card">
-            <span className="summary-label">Today’s quest</span>
-            <strong>{nextMission.title}</strong>
-            <p>{nextMission.focus}</p>
-          </article>
-
-          <article className="card summary-card">
-            <span className="summary-label">Exam blueprint</span>
-            <strong>{examBlueprint.examFormat}</strong>
-            <p>{examBlueprint.totalTime} sprint path</p>
-          </article>
-        </section>
-
-        <section className="course-layout">
-          <section className="path-panel">
-            {unitSections.map((section, sectionIndex) => (
-              <article className="path-section card" key={section.unit}>
-                <div className="path-section-head">
-                  <div>
-                    <p className="eyebrow">World {sectionIndex + 1}</p>
-                    <h2>{section.unit}</h2>
-                  </div>
-                  <span className="tiny-badge">
-                    {
-                      missionStates.filter(
-                        (state) =>
-                          state.mission.unit === section.unit && state.complete,
-                      ).length
-                    }
-                    /{section.missions.length} cleared
-                  </span>
-                </div>
-
-                <div className="path-rail">
-                  {section.missions.map((mission, index) => {
-                    const globalIndex = missions.findIndex((item) => item.id === mission.id);
-                    const state = missionStates[globalIndex];
-                    const isActive = mission.id === selectedMission.id;
-                    const isNext = mission.id === nextMission.id;
-                    const isUnlocked = globalIndex <= unlockedIndex;
-                    const sideClass = index % 2 === 0 ? 'left' : 'right';
-                    const missionSubsteps = buildMissionSubsteps(
-                      mission,
-                      quizSelections,
-                      fillInputs,
-                    );
-
-                    return (
-                      <div className={`path-node ${sideClass}`} key={mission.id}>
-                        <button
-                          className={`path-step ${sideClass} ${
-                            state.complete ? 'complete' : ''
-                          } ${isActive ? 'active' : ''} ${
-                            isUnlocked ? 'unlocked' : 'future'
-                          }`}
-                          onClick={() => selectMission(mission)}
-                          type="button"
-                        >
-                          <span className="path-line" />
-                          <span className="path-orb">
-                            {state.complete ? '✓' : String(globalIndex + 1)}
-                          </span>
-                          <div className="step-card">
-                            <span className="step-tag">
-                              {isNext
-                                ? 'Next lesson'
-                                : state.complete
-                                  ? 'Mastered'
-                                  : isUnlocked
-                                    ? 'Ready'
-                                    : 'Coming up'}
-                            </span>
-                            <strong>{mission.title}</strong>
-                            <p>
-                              {mission.duration} · {mission.focus}
-                            </p>
-                          </div>
-                        </button>
-
-                        {isActive ? (
-                          <div className={`subpath-cluster ${sideClass}`}>
-                            {missionSubsteps.map((step) => (
-                              <button
-                                className={`subpath-bubble ${step.kind} ${
-                                  step.done ? 'complete' : ''
-                                } ${
-                                  selectedSubstep.id === step.id ? 'active' : ''
-                                }`}
-                                key={step.id}
-                                onClick={() => setSelectedSubstepId(step.id)}
-                                type="button"
-                              >
-                                <span>{step.bubbleLabel}</span>
-                              </button>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              </article>
-            ))}
-          </section>
-
-          <aside className="lesson-panel">
-            <section className="card lesson-card">
-              <div className="lesson-header">
-                <div>
-                  <p className="eyebrow">
-                    {selectedMission.unit} // {selectedMission.arc}
-                  </p>
-                  <h2>{selectedMission.title}</h2>
-                </div>
-                <div className="lesson-mentor">
-                  <PixelSprite
-                    label={selectedMentor.name}
-                    palette={selectedMentor.palette}
-                    pixels={selectedMentor.pixels}
-                    pixelSize={9}
-                  />
-                  <div>
-                    <strong>{selectedMentor.name}</strong>
-                    <p>{selectedMentor.role}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="lesson-meta">
-                <span className="pill">Lesson {selectedMissionIndex + 1}</span>
-                <span className="pill accent">{selectedMission.examWeight}</span>
-                <span className="pill">{selectedMission.duration}</span>
-                <span className="pill">{selectedMission.xp} XP</span>
-                <span className="pill">Progress {currentMissionProgress}</span>
-              </div>
-
-              <div className="substep-row">
-                {selectedMissionSubsteps.map((step) => (
+                <div className="hero-actions">
                   <button
-                    className={`substep-chip ${
-                      selectedSubstep.id === step.id ? 'active' : ''
-                    } ${step.done ? 'complete' : ''}`}
-                    key={step.id}
-                    onClick={() => setSelectedSubstepId(step.id)}
+                    className="primary-button hero-button"
+                    onClick={() => setPage('pathway')}
                     type="button"
                   >
-                    <span>{step.bubbleLabel}</span>
-                    {step.title}
+                    Enter the pathway
                   </button>
-                ))}
+                  <div className="hero-badges">
+                    <span className="pill">10-hour route</span>
+                    <span className="pill">4 unit worlds</span>
+                    <span className="pill">Separate lesson screens</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="lesson-focus">
-                <div className="lesson-focus-head">
-                  <div>
-                    <p className="eyebrow">Focused step</p>
-                    <h3>{selectedSubstep.title}</h3>
-                  </div>
-                  <span className="tiny-badge">
-                    {selectedSubstep.bubbleLabel}
-                  </span>
+              <div className="hero-stage">
+                <div className="speech-bubble">
+                  <strong>{selectedMentor.name}</strong>
+                  <p>
+                    You should feel a difference now: home is for choosing a route,
+                    pathway is for planning, and lesson is for doing the actual work.
+                  </p>
                 </div>
 
-                {selectedSubstep.kind === 'brief' ? (
-                  <div className="focus-grid">
-                    <article className="focus-card">
-                      <h4>Why this mission matters</h4>
-                      <p>{selectedMission.story}</p>
-                    </article>
-                    <article className="focus-card">
-                      <h4>What you will practice</h4>
-                      <p>{selectedMission.focus}</p>
-                    </article>
-                  </div>
-                ) : null}
-
-                {selectedSubstep.kind === 'concept' ? (
-                  <div className="teaching-stack">
-                    <article className="focus-card concept-card lesson-master-card">
-                      <h4>Coach explanation</h4>
-                      <p>{selectedLessonGuide.coachIntro}</p>
-                      <p>{selectedMission.lesson}</p>
-                    </article>
-
-                    <div className="focus-grid">
-                      <article className="focus-card">
-                        <h4>Mental model</h4>
-                        <p>{selectedLessonGuide.mentalModel}</p>
-                      </article>
-                      <article className="focus-card">
-                        <h4>Common trap</h4>
-                        <p>{selectedLessonGuide.commonMistake}</p>
-                      </article>
+                <div className="stage-party">
+                  {Object.values(mentorRoster).map((mentor) => (
+                    <div className="stage-mentor" key={mentor.name}>
+                      <PixelSprite
+                        label={mentor.name}
+                        palette={mentor.palette}
+                        pixels={mentor.pixels}
+                        pixelSize={10}
+                      />
                     </div>
-
-                    <article className="focus-card example-card">
-                      <h4>{selectedLessonGuide.workedExample.title}</h4>
-                      <pre className="code-snippet">
-                        <code>{selectedLessonGuide.workedExample.code.join('\n')}</code>
-                      </pre>
-                      <p>{selectedLessonGuide.workedExample.walkthrough}</p>
-                    </article>
-
-                    <div className="focus-grid">
-                      <article className="focus-card">
-                        <h4>Debug rule</h4>
-                        <p>{selectedLessonGuide.debugRule}</p>
-                      </article>
-                      <article className="focus-card">
-                        <h4>Before you move on</h4>
-                        <ul className="teaching-list">
-                          {selectedLessonGuide.checklist.map((item) => (
-                            <li key={item}>{item}</li>
-                          ))}
-                        </ul>
-                      </article>
-                    </div>
-                  </div>
-                ) : null}
-
-                {selectedSubstep.kind === 'boss' ? (
-                  <div className="focus-grid">
-                    <article className="focus-card boss-card">
-                      <h4>Boss move</h4>
-                      <p>{selectedMission.bossMove}</p>
-                    </article>
-                    <article className="focus-card">
-                      <h4>Exam alignment</h4>
-                      <p>{selectedMission.examWeight}</p>
-                    </article>
-                  </div>
-                ) : null}
-
-                {activeQuizChallenge ? (
-                  <QuizCard
-                    challenge={activeQuizChallenge}
-                    selected={quizSelections[activeQuizChallenge.id]}
-                    submitted={Boolean(quizSubmissions[activeQuizChallenge.id])}
-                    onSelect={(optionId) =>
-                      setQuizSelections((current) => ({
-                        ...current,
-                        [activeQuizChallenge.id]: optionId,
-                      }))
-                    }
-                    onSubmit={() =>
-                      setQuizSubmissions((current) => ({
-                        ...current,
-                        [activeQuizChallenge.id]: true,
-                      }))
-                    }
-                  />
-                ) : null}
-
-                {activeFillChallenge ? (
-                  <FillCard
-                    challenge={activeFillChallenge}
-                    submitted={Boolean(fillSubmissions[activeFillChallenge.id])}
-                    values={fillInputs[activeFillChallenge.id] ?? {}}
-                    onChange={(blankId, value) =>
-                      setFillInputs((current) => ({
-                        ...current,
-                        [activeFillChallenge.id]: {
-                          ...(current[activeFillChallenge.id] ?? {}),
-                          [blankId]: value,
-                        },
-                      }))
-                    }
-                    onSubmit={() =>
-                      setFillSubmissions((current) => ({
-                        ...current,
-                        [activeFillChallenge.id]: true,
-                      }))
-                    }
-                  />
-                ) : null}
-              </div>
-
-              <div className="topic-chip-row">
-                {selectedMission.officialTopics.map((topic) => (
-                  <span className="topic-chip" key={topic}>
-                    Topic {topic}
-                  </span>
-                ))}
+                  ))}
+                </div>
               </div>
             </section>
 
-            <section className="card practice-card">
-              <div className="practice-card-head">
-                <div>
-                  <p className="eyebrow">Section drill pack</p>
-                  <h2>{selectedPracticeSection.title}</h2>
+            <section className="summary-strip">
+              <article className="card summary-card">
+                <span className="summary-label">Journey progress</span>
+                <strong>{completedLessons}/{allJourneyLessons.length} lessons cleared</strong>
+                <div className="meter">
+                  <span
+                    style={{
+                      width: `${Math.max(
+                        Math.round((completedLessons / allJourneyLessons.length) * 100),
+                        8,
+                      )}%`,
+                    }}
+                  />
                 </div>
-                <div className="practice-stat-block">
-                  <strong>
-                    {selectedPracticeCorrect}/{selectedPracticeSection.challenges.length}
-                  </strong>
-                  <p>completed in this section</p>
-                </div>
-              </div>
+                <p>{Math.round(totalJourneyMinutes / 60)} total hours of guided study</p>
+              </article>
 
-              <p className="practice-note">{selectedPracticeSection.sourceNote}</p>
+              <article className="card summary-card">
+                <span className="summary-label">Selected route</span>
+                <strong>{selectedLevel.title}</strong>
+                <p>{selectedLevel.pacing}</p>
+              </article>
 
-              <div className="practice-controls">
-                <span className="pill">
-                  Page {practicePage + 1} / {practicePageCount}
-                </span>
-                <span className="pill">
-                  {selectedPracticeSection.challenges.length} total reps
-                </span>
+              <article className="card summary-card">
+                <span className="summary-label">Next lesson</span>
+                <strong>{nextLesson.title}</strong>
+                <p>{nextLesson.duration} · {nextLesson.objective}</p>
+              </article>
+            </section>
+
+            <section className="level-grid">
+              {courseLevels.map((level) => (
                 <button
-                  className="secondary-button"
-                  disabled={practicePage === 0}
-                  onClick={() =>
-                    setPracticePage((current) => Math.max(0, current - 1))
-                  }
+                  className={`card level-card ${
+                    selectedLevel.id === level.id ? 'active' : ''
+                  }`}
+                  key={level.id}
+                  onClick={() => setSelectedLevelId(level.id)}
                   type="button"
                 >
-                  Previous
+                  <p className="eyebrow">{level.recommended ? 'Recommended' : 'Route'}</p>
+                  <h2>{level.title}</h2>
+                  <strong>{level.subtitle}</strong>
+                  <p>{level.pacing}</p>
+                  <p>{level.target}</p>
                 </button>
-                <button
-                  className="secondary-button"
-                  disabled={practicePage >= practicePageCount - 1}
-                  onClick={() =>
-                    setPracticePage((current) =>
-                      Math.min(practicePageCount - 1, current + 1),
-                    )
-                  }
-                  type="button"
-                >
-                  Next
-                </button>
-              </div>
+              ))}
+            </section>
 
-              <div className="practice-stack">
-                {visiblePracticeChallenges.map((challenge) =>
-                  challenge.type === 'quiz' ? (
+            <section className="home-world-grid">
+              {journeyUnits.map((unit) => {
+                const mentor = mentorRoster[unit.mentorKey];
+                const unitComplete = lessonCompletion.filter(
+                  (item) => item.lesson.unitId === unit.id && item.complete,
+                ).length;
+
+                return (
+                  <article className="card home-world-card" key={unit.id}>
+                    <div className="unit-mentor">
+                      <div className="unit-mentor-sprite">
+                        <PixelSprite
+                          label={mentor.name}
+                          palette={mentor.palette}
+                          pixels={mentor.pixels}
+                          pixelSize={6}
+                        />
+                      </div>
+                      <div>
+                        <strong>{unit.title}</strong>
+                        <p>{mentor.name}</p>
+                      </div>
+                    </div>
+                    <p>{unit.description}</p>
+                    <div className="pill-cloud">
+                      <span className="pill">{unit.duration}</span>
+                      <span className="pill accent">{unit.examWeight}</span>
+                      <span className="pill">
+                        {unitComplete}/{unit.lessons.length} lessons
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          </>
+        ) : null}
+
+        {page === 'pathway' ? (
+          <section className="pathway-page">
+            <section className="pathway-header card">
+              <div>
+                <p className="eyebrow">Pathway</p>
+                <h1>Choose a world, then open a lesson on its own screen.</h1>
+                <p className="hero-text">
+                  This route is built around {allJourneyLessons.length} guided lessons,
+                  roughly {Math.round(totalJourneyMinutes / 60)} hours total, and deeper
+                  drill sets attached to every lesson.
+                </p>
+              </div>
+              <button
+                className="primary-button"
+                onClick={() => openLesson(nextLesson)}
+                type="button"
+              >
+                Continue {nextLesson.title}
+              </button>
+            </section>
+
+            <section className="world-stack">
+              {journeyUnits.map((unit, index) => {
+                const mentor = mentorRoster[unit.mentorKey];
+                return (
+                  <article className="path-section card" key={unit.id}>
+                    <div className="path-section-head">
+                      <div>
+                        <p className="eyebrow">World {index + 1}</p>
+                        <h2>{unit.title}</h2>
+                        <p className="world-description">{unit.description}</p>
+                      </div>
+                      <div className="unit-head-aside">
+                        <div className="unit-mentor">
+                          <div className="unit-mentor-sprite">
+                            <PixelSprite
+                              label={mentor.name}
+                              palette={mentor.palette}
+                              pixels={mentor.pixels}
+                              pixelSize={6}
+                            />
+                          </div>
+                          <div>
+                            <strong>{mentor.name}</strong>
+                            <p>{mentor.role}</p>
+                          </div>
+                        </div>
+                        <span className="tiny-badge">{unit.duration}</span>
+                      </div>
+                    </div>
+
+                    <div className="lesson-list">
+                      {unit.lessons.map((lesson) => {
+                        const lessonMission = getMissionById(lesson.missionId);
+                        const complete =
+                          lessonCompletion.find((item) => item.lesson.id === lesson.id)
+                            ?.complete ?? false;
+
+                        return (
+                          <button
+                            className={`lesson-list-card ${
+                              selectedLesson.id === lesson.id ? 'active' : ''
+                            } ${complete ? 'complete' : ''}`}
+                            key={lesson.id}
+                            onClick={() => openLesson(lesson)}
+                            type="button"
+                          >
+                            <div className="lesson-list-card-top">
+                              <span className="step-tag">
+                                {complete ? 'Cleared' : lesson.duration}
+                              </span>
+                              <span className="tiny-badge">
+                                {lesson.practiceCount} practice reps
+                              </span>
+                            </div>
+                            <strong>{lesson.title}</strong>
+                            <p>{lesson.objective}</p>
+                            <div className="pill-cloud">
+                              {lessonMission.officialTopics.map((topic) => (
+                                <span className="topic-chip" key={`${lesson.id}-${topic}`}>
+                                  Topic {topic}
+                                </span>
+                              ))}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          </section>
+        ) : null}
+
+        {page === 'lesson' ? (
+          <section className="course-layout">
+            <section className="path-panel">
+              <section className="card lesson-route-card">
+                <div className="lesson-route-head">
+                  <button
+                    className="secondary-button"
+                    onClick={() => setPage('pathway')}
+                    type="button"
+                  >
+                    Back to pathway
+                  </button>
+                  <span className="pill">
+                    Lesson {lessonIndex + 1} / {allJourneyLessons.length}
+                  </span>
+                </div>
+                <p className="eyebrow">{selectedUnit.title}</p>
+                <h2>{selectedLesson.title}</h2>
+                <p className="hero-text">{selectedLesson.objective}</p>
+                <div className="pill-cloud">
+                  <span className="pill">{selectedLesson.duration}</span>
+                  <span className="pill accent">{selectedUnit.examWeight}</span>
+                  <span className="pill">{selectedPracticeSection.title}</span>
+                </div>
+                <div className="focus-grid">
+                  {selectedLesson.teachingMoments.map((moment) => (
+                    <article className="focus-card" key={moment}>
+                      <h4>What we teach here</h4>
+                      <p>{moment}</p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <section className="card lesson-card">
+                <div className="lesson-header">
+                  <div>
+                    <p className="eyebrow">
+                      {selectedMission.unit} // {selectedMission.arc}
+                    </p>
+                    <h2>{selectedMission.title}</h2>
+                  </div>
+                  <div className="lesson-mentor">
+                    <PixelSprite
+                      label={selectedMentor.name}
+                      palette={selectedMentor.palette}
+                      pixels={selectedMentor.pixels}
+                      pixelSize={9}
+                    />
+                    <div>
+                      <strong>{selectedMentor.name}</strong>
+                      <p>{selectedMentor.role}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="lesson-meta">
+                  <span className="pill">{selectedLesson.duration}</span>
+                  <span className="pill accent">{selectedMission.examWeight}</span>
+                  <span className="pill">Progress {currentMissionProgress}</span>
+                  <span className="pill">{lessonPracticeChallenges.length} lesson reps</span>
+                </div>
+
+                <div className="substep-row">
+                  {selectedMissionSubsteps.map((step) => (
+                    <button
+                      className={`substep-chip ${
+                        selectedSubstep.id === step.id ? 'active' : ''
+                      } ${step.done ? 'complete' : ''}`}
+                      key={step.id}
+                      onClick={() => setSelectedSubstepId(step.id)}
+                      type="button"
+                    >
+                      <span>{step.bubbleLabel}</span>
+                      {step.title}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="lesson-focus">
+                  <div className="lesson-focus-head">
+                    <div>
+                      <p className="eyebrow">Focused step</p>
+                      <h3>{selectedSubstep.title}</h3>
+                    </div>
+                    <span className="tiny-badge">{selectedSubstep.bubbleLabel}</span>
+                  </div>
+
+                  {selectedSubstep.kind === 'brief' ? (
+                    <div className="focus-grid">
+                      <article className="focus-card">
+                        <h4>Why this lesson exists</h4>
+                        <p>{selectedMission.story}</p>
+                      </article>
+                      <article className="focus-card">
+                        <h4>Lesson objective</h4>
+                        <p>{selectedLesson.objective}</p>
+                      </article>
+                    </div>
+                  ) : null}
+
+                  {selectedSubstep.kind === 'concept' ? (
+                    <div className="teaching-stack">
+                      <article className="focus-card concept-card lesson-master-card">
+                        <h4>Coach explanation</h4>
+                        <p>{selectedLessonGuide.coachIntro}</p>
+                        <p>{selectedMission.lesson}</p>
+                      </article>
+
+                      <div className="focus-grid">
+                        <article className="focus-card">
+                          <h4>Mental model</h4>
+                          <p>{selectedLessonGuide.mentalModel}</p>
+                        </article>
+                        <article className="focus-card">
+                          <h4>Common trap</h4>
+                          <p>{selectedLessonGuide.commonMistake}</p>
+                        </article>
+                      </div>
+
+                      <article className="focus-card example-card">
+                        <h4>{selectedLessonGuide.workedExample.title}</h4>
+                        <pre className="code-snippet">
+                          <code>{selectedLessonGuide.workedExample.code.join('\n')}</code>
+                        </pre>
+                        <p>{selectedLessonGuide.workedExample.walkthrough}</p>
+                      </article>
+
+                      <div className="focus-grid">
+                        <article className="focus-card">
+                          <h4>Debug rule</h4>
+                          <p>{selectedLessonGuide.debugRule}</p>
+                        </article>
+                        <article className="focus-card">
+                          <h4>Before you move on</h4>
+                          <ul className="teaching-list">
+                            {selectedLessonGuide.checklist.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </article>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {selectedSubstep.kind === 'boss' ? (
+                    <div className="focus-grid">
+                      <article className="focus-card boss-card">
+                        <h4>Boss move</h4>
+                        <p>{selectedMission.bossMove}</p>
+                      </article>
+                      <article className="focus-card">
+                        <h4>Lesson route outcome</h4>
+                        <p>{selectedLesson.teachingMoments.join('. ')}.</p>
+                      </article>
+                    </div>
+                  ) : null}
+
+                  {activeQuizChallenge ? (
                     <QuizCard
-                      challenge={challenge}
-                      key={challenge.id}
-                      selected={quizSelections[challenge.id]}
-                      submitted={Boolean(quizSubmissions[challenge.id])}
+                      challenge={activeQuizChallenge}
+                      selected={quizSelections[activeQuizChallenge.id]}
+                      submitted={Boolean(quizSubmissions[activeQuizChallenge.id])}
                       onSelect={(optionId) =>
                         setQuizSelections((current) => ({
                           ...current,
-                          [challenge.id]: optionId,
+                          [activeQuizChallenge.id]: optionId,
                         }))
                       }
                       onSubmit={() =>
                         setQuizSubmissions((current) => ({
                           ...current,
-                          [challenge.id]: true,
+                          [activeQuizChallenge.id]: true,
                         }))
                       }
                     />
-                  ) : (
+                  ) : null}
+
+                  {activeFillChallenge ? (
                     <FillCard
-                      challenge={challenge}
-                      key={challenge.id}
-                      submitted={Boolean(fillSubmissions[challenge.id])}
-                      values={fillInputs[challenge.id] ?? {}}
+                      challenge={activeFillChallenge}
+                      mentor={selectedMentor}
+                      submitted={Boolean(fillSubmissions[activeFillChallenge.id])}
+                      values={fillInputs[activeFillChallenge.id] ?? {}}
                       onChange={(blankId, value) =>
                         setFillInputs((current) => ({
                           ...current,
-                          [challenge.id]: {
-                            ...(current[challenge.id] ?? {}),
+                          [activeFillChallenge.id]: {
+                            ...(current[activeFillChallenge.id] ?? {}),
                             [blankId]: value,
                           },
                         }))
@@ -890,36 +992,117 @@ function App() {
                       onSubmit={() =>
                         setFillSubmissions((current) => ({
                           ...current,
-                          [challenge.id]: true,
+                          [activeFillChallenge.id]: true,
                         }))
                       }
                     />
-                  ),
-                )}
-              </div>
+                  ) : null}
+                </div>
+
+                <div className="topic-chip-row">
+                  {selectedMission.officialTopics.map((topic) => (
+                    <span className="topic-chip" key={topic}>
+                      Topic {topic}
+                    </span>
+                  ))}
+                </div>
+              </section>
             </section>
 
-            <section className="card side-card">
-              <p className="eyebrow">Official Exam Mode</p>
-              <h2>Four boss types you need to beat</h2>
-              <div className="frq-grid">
-                {frqBlueprint.map((item) => (
-                  <div className="frq-item" key={item.title}>
-                    <strong>{item.title}</strong>
-                    <p>{item.cue}</p>
+            <aside className="lesson-panel">
+              <section className="card practice-card">
+                <div className="practice-card-head">
+                  <div>
+                    <p className="eyebrow">Lesson drill pack</p>
+                    <h2>{selectedPracticeSection.title}</h2>
                   </div>
-                ))}
-              </div>
-              <div className="pill-cloud">
-                {examBlueprint.unitWeights.map((unit) => (
-                  <span className="pill" key={unit}>
-                    {unit}
-                  </span>
-                ))}
-              </div>
-            </section>
-          </aside>
-        </section>
+                  <div className="practice-stat-block">
+                    <strong>
+                      {selectedPracticeCorrect}/{lessonPracticeChallenges.length}
+                    </strong>
+                    <p>completed in this lesson pack</p>
+                  </div>
+                </div>
+
+                <p className="practice-note">{selectedPracticeSection.sourceNote}</p>
+
+                <div className="practice-controls">
+                  <span className="pill">{selectedLesson.duration}</span>
+                  <span className="pill">{lessonPracticeChallenges.length} guided reps</span>
+                  <span className="pill">{selectedPracticeSection.unit}</span>
+                </div>
+
+                <div className="practice-stack">
+                  {lessonPracticeChallenges.map((challenge) =>
+                    challenge.type === 'quiz' ? (
+                      <QuizCard
+                        challenge={challenge}
+                        key={challenge.id}
+                        selected={quizSelections[challenge.id]}
+                        submitted={Boolean(quizSubmissions[challenge.id])}
+                        onSelect={(optionId) =>
+                          setQuizSelections((current) => ({
+                            ...current,
+                            [challenge.id]: optionId,
+                          }))
+                        }
+                        onSubmit={() =>
+                          setQuizSubmissions((current) => ({
+                            ...current,
+                            [challenge.id]: true,
+                          }))
+                        }
+                      />
+                    ) : (
+                      <FillCard
+                        challenge={challenge}
+                        key={challenge.id}
+                        mentor={selectedMentor}
+                        submitted={Boolean(fillSubmissions[challenge.id])}
+                        values={fillInputs[challenge.id] ?? {}}
+                        onChange={(blankId, value) =>
+                          setFillInputs((current) => ({
+                            ...current,
+                            [challenge.id]: {
+                              ...(current[challenge.id] ?? {}),
+                              [blankId]: value,
+                            },
+                          }))
+                        }
+                        onSubmit={() =>
+                          setFillSubmissions((current) => ({
+                            ...current,
+                            [challenge.id]: true,
+                          }))
+                        }
+                      />
+                    ),
+                  )}
+                </div>
+              </section>
+
+              <section className="card side-card">
+                <p className="eyebrow">Official Exam Mode</p>
+                <h2>Four boss types you need to beat</h2>
+                <div className="frq-grid">
+                  {frqBlueprint.map((item) => (
+                    <div className="frq-item" key={item.title}>
+                      <strong>{item.title}</strong>
+                      <p>{item.cue}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="pill-cloud">
+                  {examBlueprint.unitWeights.map((unit) => (
+                    <span className="pill" key={unit}>
+                      {unit}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            </aside>
+          </section>
+        ) : null}
       </main>
     </div>
   );
@@ -993,6 +1176,7 @@ function QuizCard({
 
 type FillCardProps = {
   challenge: FillChallenge;
+  mentor: MentorProfile;
   submitted: boolean;
   values: Record<string, string>;
   onChange: (blankId: string, value: string) => void;
@@ -1001,6 +1185,7 @@ type FillCardProps = {
 
 function FillCard({
   challenge,
+  mentor,
   submitted,
   values,
   onChange,
@@ -1012,6 +1197,8 @@ function FillCard({
     const value = values[blank.id] ?? '';
     const accepted = [blank.answer, ...(blank.alternates ?? [])];
     const filled = value.trim().length > 0;
+    const lineNumber =
+      challenge.snippet.findIndex((line) => line.includes(`__${blank.id}__`)) + 1;
     const correct = accepted.some(
       (candidate) =>
         normalizeCompact(candidate) === normalizeCompact(value) ||
@@ -1022,9 +1209,14 @@ function FillCard({
       blank,
       filled,
       correct,
+      lineNumber,
+      hint: getBlankMentorHint(blank, lineNumber, value),
     };
   });
   const editorPreview = buildCodePreview(challenge, values);
+  const firstIssue =
+    blankChecks.find((check) => !check.correct) ??
+    blankChecks.find((check) => !check.filled);
   const editorTests = [
     {
       id: 'filled',
@@ -1051,6 +1243,27 @@ function FillCard({
         : 'The program behavior still misses the target. Use the failed slot checks to narrow down the bug.',
     },
   ];
+  const outputLines = testsRun
+    ? [
+        `> javac ${getEditorFileName(challenge.id)}`,
+        blankChecks.every((check) => check.filled)
+          ? 'Compilation check: placeholders resolved.'
+          : 'Compilation check: unresolved placeholder or invalid token found.',
+        `> java ${getEditorFileName(challenge.id).replace('.java', '')}`,
+        isCorrect
+          ? 'Program output: all expected checks passed.'
+          : firstIssue
+            ? `Runtime hint: line ${firstIssue.lineNumber} needs attention before the output matches.`
+            : 'Runtime hint: re-check the program logic.',
+      ]
+    : [];
+  const mentorMessage = !testsRun
+    ? `I’m watching the code with you. Hit Run when you want me to inspect the file and point at the first bug.`
+    : isCorrect
+      ? `Nice. The code structure is clean and the output checks are green. Lock it in and keep moving.`
+      : firstIssue
+        ? firstIssue.hint
+        : `The code is close, but one of the Java ideas is still off. Check the console and fix the first failing slot.`;
 
   useEffect(() => {
     setTestsRun(false);
@@ -1084,7 +1297,10 @@ function FillCard({
                     if (!match) {
                       return (
                         <span key={`${challenge.id}-${index}-${partIndex}`}>
-                          {part}
+                          {renderSyntaxSegment(
+                            part,
+                            `${challenge.id}-${index}-${partIndex}`,
+                          )}
                         </span>
                       );
                     }
@@ -1134,25 +1350,45 @@ function FillCard({
             <span>{editorTests.filter((test) => test.pass).length}/{editorTests.length} checks green</span>
           </div>
           {testsRun ? (
-            <div className="test-stack">
-              {editorTests.map((test) => (
-                <div className={`test-row ${test.pass ? 'pass' : 'fail'}`} key={test.id}>
-                  <strong>{test.pass ? 'PASS' : 'FAIL'}</strong>
-                  <div>
-                    <span>{test.label}</span>
-                    <p>{test.detail}</p>
+            <>
+              <pre className="console-code terminal-log">
+                <code>{outputLines.join('\n')}</code>
+              </pre>
+              <div className="test-stack">
+                {editorTests.map((test) => (
+                  <div className={`test-row ${test.pass ? 'pass' : 'fail'}`} key={test.id}>
+                    <strong>{test.pass ? 'PASS' : 'FAIL'}</strong>
+                    <div>
+                      <span>{test.label}</span>
+                      <p>{test.detail}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           ) : (
             <div className="console-preview">
               <pre className="console-code">
                 <code>{editorPreview}</code>
               </pre>
-              <p>Press Run tests to compile this practice file and check each blank like a mini IDE challenge.</p>
+              <p>Press Run to compile this practice file, inspect the output, and get mentor debugging feedback.</p>
             </div>
           )}
+        </div>
+
+        <div className="mentor-debug-panel">
+          <div className="mentor-debug-avatar">
+            <PixelSprite
+              label={mentor.name}
+              palette={mentor.palette}
+              pixels={mentor.pixels}
+              pixelSize={7}
+            />
+          </div>
+          <div className="mentor-debug-copy">
+            <strong>{mentor.name}</strong>
+            <p>{mentorMessage}</p>
+          </div>
         </div>
       </div>
       <div className="challenge-actions">
@@ -1162,7 +1398,7 @@ function FillCard({
             onClick={() => setTestsRun(true)}
             type="button"
           >
-            Run tests
+            Run
           </button>
           <button className="primary-button" onClick={onSubmit} type="button">
             Check code
