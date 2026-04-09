@@ -1314,17 +1314,495 @@ input {
   image-rendering: pixelated;
 }
 
+.home-page,
+.pathway-detail-page,
+.lesson-page {
+  display: grid;
+  gap: 18px;
+}
+
+.home-route-header,
+.home-pathway-card,
+.pathway-detail-header,
+.unit-lesson-path-card,
+.lesson-track-card,
+.lesson-workspace-card,
+.lesson-progress-dock {
+  padding: 24px;
+}
+
+.home-route-header,
+.pathway-detail-header,
+.lesson-workspace-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 251, 255, 0.96));
+}
+
+.home-route-header h1,
+.pathway-detail-header h1,
+.home-pathway-card h2,
+.unit-lesson-path-card h2,
+.lesson-workspace-card h2 {
+  margin: 0;
+  font-size: clamp(1.9rem, 3.4vw, 3.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.home-route-top,
+.pathway-detail-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: start;
+}
+
+.level-selector-row,
+.route-summary-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.level-selector-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.route-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.level-chip,
+.unit-switcher-chip {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  border: 2px solid #d8e7f3;
+  background: #ffffff;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.level-chip strong,
+.unit-switcher-chip {
+  font-weight: 900;
+}
+
+.level-chip span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.level-chip.active,
+.unit-switcher-chip.active {
+  border-color: #ffd270;
+  background: #fff7df;
+}
+
+.home-pathway-card,
+.unit-lesson-path-card {
+  background: linear-gradient(180deg, #ffffff, #f8fcff);
+}
+
+.unit-path-rail,
+.lesson-path-rail {
+  position: relative;
+  display: grid;
+  gap: 18px;
+}
+
+.unit-path-rail::before,
+.lesson-path-rail::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 39px;
+  width: 6px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #d6efc9, #83ce49);
+}
+
+.unit-path-node,
+.lesson-path-node {
+  position: relative;
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.unit-path-orb,
+.lesson-path-node-orb {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 78px;
+  height: 78px;
+  border-radius: 999px;
+  border: 4px solid #c5e8b1;
+  background: linear-gradient(180deg, #a4eb5e, #61c132);
+  box-shadow: 0 10px 0 rgba(98, 193, 50, 0.28);
+  color: white;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.9rem;
+}
+
+.unit-path-orb.active,
+.lesson-path-node.active .lesson-path-node-orb {
+  background: linear-gradient(180deg, #ffd95d, #ffaf31);
+  border-color: #ffe78f;
+  box-shadow: 0 10px 0 rgba(255, 173, 53, 0.34);
+}
+
+.unit-path-orb.complete,
+.lesson-path-node.complete .lesson-path-node-orb {
+  background: linear-gradient(180deg, #4fc8ff, #2e93ff);
+  border-color: #b8e3ff;
+}
+
+.unit-path-card,
+.lesson-path-node-card,
+.lesson-track-step-copy {
+  border-radius: 24px;
+  border: 2px solid #d8e7f3;
+  background: #ffffff;
+  box-shadow: 0 12px 24px rgba(24, 49, 83, 0.06);
+}
+
+.unit-path-card,
+.lesson-path-node-card {
+  padding: 20px;
+}
+
+.unit-path-node.active .unit-path-card,
+.lesson-path-node.active .lesson-path-node-card {
+  border-color: #72c7ff;
+  background: #eef9ff;
+}
+
+.unit-path-node.active .unit-path-orb {
+  background: linear-gradient(180deg, #ffd95d, #ffaf31);
+  border-color: #ffe78f;
+  box-shadow: 0 10px 0 rgba(255, 173, 53, 0.34);
+}
+
+.unit-path-card-head,
+.lesson-path-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: start;
+}
+
+.unit-path-card strong,
+.lesson-path-node-card h3,
+.lesson-track-step-copy strong {
+  display: block;
+  margin: 0 0 8px;
+}
+
+.lesson-path-node-card h3 {
+  margin: 4px 0 0;
+  font-size: 1.2rem;
+}
+
+.unit-path-card p,
+.lesson-path-node-card p,
+.lesson-track-step-copy p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.lesson-bubble-row,
+.lesson-stop-row,
+.unit-switcher-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lesson-bubble-row,
+.lesson-stop-row {
+  margin-top: 18px;
+}
+
+.lesson-bubble,
+.mini-stop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 2px solid #dbe7ef;
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.lesson-bubble {
+  cursor: pointer;
+}
+
+.lesson-bubble.active {
+  border-color: #ffd270;
+  background: #fff7df;
+}
+
+.lesson-bubble.complete {
+  border-color: #bde5a0;
+  background: #f4fde9;
+  color: #2f7d25;
+}
+
+.mini-stop {
+  min-height: 38px;
+  padding: 8px 12px;
+  background: #f5fbff;
+  color: #3d617f;
+}
+
+.unit-path-actions,
+.lesson-path-node-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-top: 18px;
+}
+
+.unit-switcher-row {
+  gap: 12px;
+}
+
+.unit-switcher-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.unit-switcher-chip span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #eef7ff;
+  color: #2a5b82;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.lesson-page {
+  padding-bottom: 110px;
+}
+
+.lesson-stage {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.82fr) minmax(0, 1.18fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.lesson-track-card {
+  position: sticky;
+  top: 98px;
+  display: grid;
+  gap: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 252, 255, 0.95));
+}
+
+.lesson-track-top {
+  display: grid;
+  gap: 16px;
+}
+
+.lesson-track-rail {
+  position: relative;
+  display: grid;
+  gap: 14px;
+}
+
+.lesson-track-rail::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 24px;
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #d4ebc7, #7ec844);
+}
+
+.lesson-track-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.lesson-track-step-orb {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 2px solid #dbe7ef;
+  background: #ffffff;
+  color: #2a5b82;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.lesson-track-step-copy {
+  padding: 16px 18px;
+}
+
+.lesson-track-step.active .lesson-track-step-orb {
+  border-color: #ffd270;
+  background: #fff7df;
+  color: #9c6100;
+}
+
+.lesson-track-step.active .lesson-track-step-copy {
+  border-color: #72c7ff;
+  background: #eef9ff;
+}
+
+.lesson-track-step.complete .lesson-track-step-orb {
+  border-color: #bde5a0;
+  background: #f4fde9;
+  color: #2f7d25;
+}
+
+.lesson-track-step.complete .lesson-track-step-copy {
+  border-color: #bde5a0;
+}
+
+.lesson-workspace-card {
+  display: grid;
+  gap: 18px;
+}
+
+.lesson-workspace-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: start;
+}
+
+.mentor-callout {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+  border-radius: 24px;
+  border: 2px solid #dcebf5;
+  background: linear-gradient(180deg, #f5fbff, #ffffff);
+}
+
+.mentor-callout-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 92px;
+  height: 92px;
+  border-radius: 22px;
+  border: 2px solid #dcebf5;
+  background: #f7fcff;
+}
+
+.mentor-callout strong,
+.mentor-callout p {
+  margin: 0;
+}
+
+.mentor-callout p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.active-step-brief {
+  background: linear-gradient(180deg, #fffdf5, #ffffff);
+}
+
+.lesson-progress-dock {
+  position: sticky;
+  bottom: 16px;
+  z-index: 9;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+}
+
+.lesson-progress-copy strong,
+.lesson-progress-copy p {
+  margin: 0;
+}
+
+.lesson-progress-meter {
+  height: 18px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 2px solid #d4ebc7;
+  background: #e7f4df;
+}
+
+.lesson-progress-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--leaf), var(--grass), var(--gold));
+}
+
+.lesson-progress-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
 @media (max-width: 1180px) {
   .hero-banner,
   .course-layout,
   .summary-strip,
   .level-grid,
-  .home-world-grid {
+  .home-world-grid,
+  .route-summary-grid,
+  .level-selector-row,
+  .lesson-stage {
     grid-template-columns: 1fr;
   }
 
   .lesson-card {
     position: static;
+  }
+
+  .lesson-track-card {
+    position: static;
+  }
+
+  .lesson-progress-dock {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1339,7 +1817,14 @@ input {
   .lesson-card,
   .side-card,
   .summary-card,
-  .practice-card {
+  .practice-card,
+  .home-route-header,
+  .home-pathway-card,
+  .pathway-detail-header,
+  .unit-lesson-path-card,
+  .lesson-track-card,
+  .lesson-workspace-card,
+  .lesson-progress-dock {
     padding: 18px;
     border-radius: 24px;
   }
@@ -1347,7 +1832,15 @@ input {
   .hud-bar,
   .path-section-head,
   .lesson-header,
-  .practice-card-head {
+  .practice-card-head,
+  .home-route-top,
+  .pathway-detail-hero,
+  .unit-path-card-head,
+  .lesson-path-card-head,
+  .lesson-workspace-head,
+  .unit-path-actions,
+  .lesson-path-node-actions,
+  .lesson-progress-actions {
     flex-direction: column;
     align-items: stretch;
   }
@@ -1364,7 +1857,8 @@ input {
   .blank-grid,
   .frq-grid,
   .focus-grid,
-  .ide-body {
+  .ide-body,
+  .route-summary-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1405,5 +1899,28 @@ input {
   .subpath-cluster::before {
     left: 42px;
     width: 38px;
+  }
+
+  .unit-path-node,
+  .lesson-path-node,
+  .lesson-track-step,
+  .mentor-callout {
+    grid-template-columns: 1fr;
+  }
+
+  .unit-path-rail::before,
+  .lesson-path-rail::before,
+  .lesson-track-rail::before {
+    display: none;
+  }
+
+  .unit-path-orb,
+  .lesson-path-node-orb {
+    width: 64px;
+    height: 64px;
+  }
+
+  .unit-switcher-row {
+    flex-direction: column;
   }
 }

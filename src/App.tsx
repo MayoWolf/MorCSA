@@ -50,6 +50,17 @@ type MissionSubstep = {
   challenge?: Mission['challenges'][number];
 };
 
+type LessonFlowStep = {
+  id: string;
+  kind: MissionSubstepKind;
+  bubbleLabel: string;
+  title: string;
+  summary: string;
+  done: boolean;
+  lane: 'lesson' | 'checkpoint' | 'drill' | 'wrap';
+  challenge?: PracticeChallenge;
+};
+
 type MentorProfile = (typeof mentorRoster)[keyof typeof mentorRoster];
 
 function normalize(value: string) {
@@ -234,6 +245,71 @@ function getLessonPracticeChallenges(lesson: JourneyLesson) {
   );
 }
 
+function buildLessonFlowSteps(
+  lesson: JourneyLesson,
+  mission: Mission,
+  quizSelections: QuizSelections,
+  fillInputs: FillInputs,
+): LessonFlowStep[] {
+  const lessonPractice = getLessonPracticeChallenges(lesson);
+  const checkpointSteps = mission.challenges.map((challenge, index) => ({
+    id: challenge.id,
+    kind: challenge.type,
+    bubbleLabel: challenge.type === 'quiz' ? `Q${index + 1}` : `Code ${index + 1}`,
+    title: challenge.prompt,
+    summary: challenge.explanation,
+    done: isChallengeCorrect(challenge, quizSelections, fillInputs),
+    lane: 'checkpoint' as const,
+    challenge,
+  }));
+  const drillSteps = lessonPractice.map((challenge, index) => ({
+    id: `${lesson.id}-drill-${challenge.id}`,
+    kind: challenge.type,
+    bubbleLabel: challenge.type === 'quiz' ? `D${index + 1}` : `IDE ${index + 1}`,
+    title: challenge.prompt,
+    summary: challenge.explanation,
+    done: isChallengeCorrect(challenge, quizSelections, fillInputs),
+    lane: 'drill' as const,
+    challenge,
+  }));
+
+  return [
+    {
+      id: `${lesson.id}-start`,
+      kind: 'brief' as const,
+      bubbleLabel: 'Start',
+      title: 'Lesson Launch',
+      summary: lesson.objective,
+      done: false,
+      lane: 'lesson' as const,
+    },
+    {
+      id: `${lesson.id}-teach`,
+      kind: 'concept' as const,
+      bubbleLabel: 'Teach',
+      title: 'Teach It',
+      summary: mission.lesson,
+      done: false,
+      lane: 'lesson' as const,
+    },
+    ...checkpointSteps,
+    ...drillSteps,
+    {
+      id: `${lesson.id}-wrap`,
+      kind: 'boss' as const,
+      bubbleLabel: 'Wrap',
+      title: 'Lesson Wrap',
+      summary: mission.bossMove,
+      done: [...checkpointSteps, ...drillSteps].every((step) => step.done),
+      lane: 'wrap' as const,
+    },
+  ] satisfies LessonFlowStep[];
+}
+
+function getDefaultLessonFlowStepId(lesson: JourneyLesson) {
+  return `${lesson.id}-start`;
+}
+
 function renderSyntaxSegment(segment: string, keyBase: string): ReactNode[] {
   const tokenPattern =
     /("(?:[^"\\]|\\.)*"|\/\/.*|\b(?:public|private|protected|class|static|void|int|double|boolean|String|if|else|for|while|return|new|true|false)\b|\b\d+(?:\.\d+)?\b)/g;
@@ -336,11 +412,7 @@ function App() {
   );
   const [selectedLessonId, setSelectedLessonId] = useState(allJourneyLessons[0].id);
   const [selectedSubstepId, setSelectedSubstepId] = useState(() =>
-    getDefaultMissionSubstepId(
-      getMissionById(allJourneyLessons[0].missionId),
-      storedProgress.quizSelections,
-      storedProgress.fillInputs,
-    ),
+    getDefaultLessonFlowStepId(allJourneyLessons[0]),
   );
   const [quizSelections, setQuizSelections] = useState<QuizSelections>(
     storedProgress.quizSelections,
@@ -365,29 +437,47 @@ function App() {
   const selectedMission = getMissionById(selectedLesson.missionId);
   const selectedMentor = mentorRoster[selectedUnit.mentorKey];
   const selectedLessonGuide = lessonGuides[selectedMission.id];
-  const selectedMissionSubsteps = useMemo(
-    () => buildMissionSubsteps(selectedMission, quizSelections, fillInputs),
-    [fillInputs, quizSelections, selectedMission],
-  );
-  const selectedSubstep =
-    selectedMissionSubsteps.find((step) => step.id === selectedSubstepId) ??
-    selectedMissionSubsteps[0];
-  const activeQuizChallenge =
-    selectedSubstep.kind === 'quiz' && selectedSubstep.challenge?.type === 'quiz'
-      ? selectedSubstep.challenge
-      : undefined;
-  const activeFillChallenge =
-    selectedSubstep.kind === 'fill' && selectedSubstep.challenge?.type === 'fill'
-      ? selectedSubstep.challenge
-      : undefined;
+  const selectedUnitLessons = selectedUnit.lessons;
   const lessonPracticeChallenges = useMemo(
     () => getLessonPracticeChallenges(selectedLesson),
     [selectedLesson],
   );
   const selectedPracticeSection = getPracticeSectionById(selectedLesson.practiceSectionId);
-  const selectedPracticeCorrect = lessonPracticeChallenges.filter((challenge) =>
-    isChallengeCorrect(challenge, quizSelections, fillInputs),
+  const selectedLessonFlowSteps = useMemo(
+    () =>
+      buildLessonFlowSteps(
+        selectedLesson,
+        selectedMission,
+        quizSelections,
+        fillInputs,
+      ),
+    [fillInputs, quizSelections, selectedLesson, selectedMission],
+  );
+  const selectedSubstep =
+    selectedLessonFlowSteps.find((step) => step.id === selectedSubstepId) ??
+    selectedLessonFlowSteps[0];
+  const activeQuizChallenge =
+    selectedSubstep.challenge?.type === 'quiz' ? selectedSubstep.challenge : undefined;
+  const activeFillChallenge =
+    selectedSubstep.challenge?.type === 'fill' ? selectedSubstep.challenge : undefined;
+  const selectedLessonChallengeSteps = selectedLessonFlowSteps.filter(
+    (step) => step.lane === 'checkpoint' || step.lane === 'drill',
+  );
+  const selectedLessonCorrectChallenges = selectedLessonChallengeSteps.filter(
+    (step) => step.done,
   ).length;
+  const selectedFlowIndex = Math.max(
+    selectedLessonFlowSteps.findIndex((step) => step.id === selectedSubstep.id),
+    0,
+  );
+  const selectedFlowProgress = Math.round(
+    ((selectedFlowIndex + 1) / selectedLessonFlowSteps.length) * 100,
+  );
+  const selectedUnitIndex = journeyUnits.findIndex((unit) => unit.id === selectedUnit.id);
+  const selectedLessonIndexInUnit = Math.max(
+    selectedUnitLessons.findIndex((lesson) => lesson.id === selectedLesson.id),
+    0,
+  );
 
   const uniqueTrackedChallenges = useMemo(() => {
     const seen = new Set<string>();
@@ -464,11 +554,13 @@ function App() {
       }, 0),
   );
   const gems = completedLessons * 20 + Math.round(readiness / 4);
-  const currentMissionProgress = `${
-    selectedMission.challenges.filter((challenge) =>
-      isChallengeCorrect(challenge, quizSelections, fillInputs),
-    ).length
-  }/${selectedMission.challenges.length}`;
+  const selectedUnitCompletedLessons = lessonCompletion.filter(
+    (item) => item.lesson.unitId === selectedUnit.id && item.complete,
+  ).length;
+  const currentLessonProgress = `${selectedLessonCorrectChallenges}/${selectedLessonChallengeSteps.length}`;
+  const previousLessonFlowStep = selectedLessonFlowSteps[selectedFlowIndex - 1];
+  const nextLessonFlowStep = selectedLessonFlowSteps[selectedFlowIndex + 1];
+  const nextLessonInUnit = selectedUnitLessons[selectedLessonIndexInUnit + 1];
 
   useEffect(() => {
     try {
@@ -487,28 +579,19 @@ function App() {
   }, [fillInputs, fillSubmissions, quizSelections, quizSubmissions]);
 
   useEffect(() => {
-    if (!selectedMissionSubsteps.some((step) => step.id === selectedSubstepId)) {
-      setSelectedSubstepId(
-        getDefaultMissionSubstepId(selectedMission, quizSelections, fillInputs),
-      );
+    if (!selectedLessonFlowSteps.some((step) => step.id === selectedSubstepId)) {
+      setSelectedSubstepId(getDefaultLessonFlowStepId(selectedLesson));
     }
-  }, [
-    fillInputs,
-    quizSelections,
-    selectedMission,
-    selectedMissionSubsteps,
-    selectedSubstepId,
-  ]);
+  }, [selectedLesson, selectedLessonFlowSteps, selectedSubstepId]);
+
+  function openUnit(unit: JourneyUnit) {
+    setSelectedLessonId(unit.lessons[0].id);
+    setPage('pathway');
+  }
 
   function openLesson(lesson: JourneyLesson) {
     setSelectedLessonId(lesson.id);
-    setSelectedSubstepId(
-      getDefaultMissionSubstepId(
-        getMissionById(lesson.missionId),
-        quizSelections,
-        fillInputs,
-      ),
-    );
+    setSelectedSubstepId(getDefaultLessonFlowStepId(lesson));
     setPage('lesson');
   }
 
@@ -563,288 +646,357 @@ function App() {
         </header>
 
         {page === 'home' ? (
-          <>
-            <section className="hero-banner card">
-              <div className="hero-copy">
-                <p className="eyebrow">Real course flow, not a one-page mockup</p>
-                <h1>Pick a level, enter the pathway, then study each lesson on its own screen.</h1>
-                <p className="hero-text">
-                  MorCSA now follows a real structure: choose your route, browse the
-                  four APCSA worlds, then open a dedicated lesson page with teaching,
-                  IDE practice, and a targeted drill pack sized for actual study time.
-                </p>
-
-                <div className="hero-actions">
-                  <button
-                    className="primary-button hero-button"
-                    onClick={() => setPage('pathway')}
-                    type="button"
-                  >
-                    Enter the pathway
-                  </button>
-                  <div className="hero-badges">
-                    <span className="pill">10-hour route</span>
-                    <span className="pill">4 unit worlds</span>
-                    <span className="pill">Separate lesson screens</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="hero-stage">
-                <div className="speech-bubble">
-                  <strong>{selectedMentor.name}</strong>
-                  <p>
-                    You should feel a difference now: home is for choosing a route,
-                    pathway is for planning, and lesson is for doing the actual work.
+          <section className="home-page">
+            <section className="card home-route-header">
+              <div className="home-route-top">
+                <div>
+                  <p className="eyebrow">Home Path</p>
+                  <h1>Follow the worlds in order, then enter one lesson bubble at a time.</h1>
+                  <p className="hero-text">
+                    This screen is just your roadmap. Pick the route, tap a world,
+                    then move into a focused lesson screen where you only see one stop,
+                    one question, or one IDE mission at once.
                   </p>
                 </div>
+                <button
+                  className="primary-button"
+                  onClick={() => openLesson(nextLesson)}
+                  type="button"
+                >
+                  Continue {nextLesson.title}
+                </button>
+              </div>
 
-                <div className="stage-party">
-                  {Object.values(mentorRoster).map((mentor) => (
-                    <div className="stage-mentor" key={mentor.name}>
-                      <PixelSprite
-                        label={mentor.name}
-                        palette={mentor.palette}
-                        pixels={mentor.pixels}
-                        pixelSize={10}
-                      />
-                    </div>
-                  ))}
-                </div>
+              <div className="level-selector-row">
+                {courseLevels.map((level) => (
+                  <button
+                    className={`level-chip ${
+                      selectedLevel.id === level.id ? 'active' : ''
+                    }`}
+                    key={level.id}
+                    onClick={() => setSelectedLevelId(level.id)}
+                    type="button"
+                  >
+                    <strong>{level.title}</strong>
+                    <span>{level.subtitle}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="route-summary-grid">
+                <article className="focus-card">
+                  <h4>Selected route</h4>
+                  <p>{selectedLevel.pacing}</p>
+                </article>
+                <article className="focus-card">
+                  <h4>Course progress</h4>
+                  <p>
+                    {completedLessons}/{allJourneyLessons.length} lessons cleared and{' '}
+                    {answeredCount}/{uniqueTrackedChallenges.length} tracked reps touched.
+                  </p>
+                </article>
+                <article className="focus-card">
+                  <h4>Readiness</h4>
+                  <p>{readiness}% exam readiness with {Math.round(totalJourneyMinutes / 60)} hours mapped out.</p>
+                </article>
               </div>
             </section>
 
-            <section className="summary-strip">
-              <article className="card summary-card">
-                <span className="summary-label">Journey progress</span>
-                <strong>{completedLessons}/{allJourneyLessons.length} lessons cleared</strong>
-                <div className="meter">
-                  <span
-                    style={{
-                      width: `${Math.max(
-                        Math.round((completedLessons / allJourneyLessons.length) * 100),
-                        8,
-                      )}%`,
-                    }}
-                  />
+            <section className="card home-pathway-card">
+              <div className="path-section-head">
+                <div>
+                  <p className="eyebrow">Linear Pathway</p>
+                  <h2>Worlds first. Lessons second. Questions inside the lesson only.</h2>
                 </div>
-                <p>{Math.round(totalJourneyMinutes / 60)} total hours of guided study</p>
-              </article>
+                <span className="tiny-badge">{Math.round(totalJourneyMinutes / 60)} hour route</span>
+              </div>
 
-              <article className="card summary-card">
-                <span className="summary-label">Selected route</span>
-                <strong>{selectedLevel.title}</strong>
-                <p>{selectedLevel.pacing}</p>
-              </article>
+              <div className="unit-path-rail">
+                {journeyUnits.map((unit, index) => {
+                  const mentor = mentorRoster[unit.mentorKey];
+                  const unitComplete = lessonCompletion.filter(
+                    (item) => item.lesson.unitId === unit.id && item.complete,
+                  ).length;
+                  const isActiveUnit = selectedUnit.id === unit.id;
 
-              <article className="card summary-card">
-                <span className="summary-label">Next lesson</span>
-                <strong>{nextLesson.title}</strong>
-                <p>{nextLesson.duration} · {nextLesson.objective}</p>
-              </article>
-            </section>
-
-            <section className="level-grid">
-              {courseLevels.map((level) => (
-                <button
-                  className={`card level-card ${
-                    selectedLevel.id === level.id ? 'active' : ''
-                  }`}
-                  key={level.id}
-                  onClick={() => setSelectedLevelId(level.id)}
-                  type="button"
-                >
-                  <p className="eyebrow">{level.recommended ? 'Recommended' : 'Route'}</p>
-                  <h2>{level.title}</h2>
-                  <strong>{level.subtitle}</strong>
-                  <p>{level.pacing}</p>
-                  <p>{level.target}</p>
-                </button>
-              ))}
-            </section>
-
-            <section className="home-world-grid">
-              {journeyUnits.map((unit) => {
-                const mentor = mentorRoster[unit.mentorKey];
-                const unitComplete = lessonCompletion.filter(
-                  (item) => item.lesson.unitId === unit.id && item.complete,
-                ).length;
-
-                return (
-                  <article className="card home-world-card" key={unit.id}>
-                    <div className="unit-mentor">
-                      <div className="unit-mentor-sprite">
-                        <PixelSprite
-                          label={mentor.name}
-                          palette={mentor.palette}
-                          pixels={mentor.pixels}
-                          pixelSize={6}
-                        />
+                  return (
+                    <article
+                      className={`unit-path-node ${isActiveUnit ? 'active' : ''}`}
+                      key={unit.id}
+                    >
+                      <div
+                        className={`unit-path-orb ${
+                          unitComplete === unit.lessons.length
+                            ? 'complete'
+                            : isActiveUnit
+                              ? 'active'
+                              : ''
+                        }`}
+                      >
+                        {index + 1}
                       </div>
-                      <div>
-                        <strong>{unit.title}</strong>
-                        <p>{mentor.name}</p>
+                      <div className="unit-path-card">
+                        <div className="unit-path-card-head">
+                          <div className="unit-mentor">
+                            <div className="unit-mentor-sprite">
+                              <PixelSprite
+                                label={mentor.name}
+                                palette={mentor.palette}
+                                pixels={mentor.pixels}
+                                pixelSize={6}
+                              />
+                            </div>
+                            <div>
+                              <strong>{unit.title}</strong>
+                              <p>{mentor.name}</p>
+                            </div>
+                          </div>
+                          <span className="tiny-badge">{unit.duration}</span>
+                        </div>
+
+                        <p>{unit.description}</p>
+                        <div className="pill-cloud">
+                          <span className="pill">{unit.examWeight}</span>
+                          <span className="pill">{unitComplete}/{unit.lessons.length} lessons</span>
+                        </div>
+
+                        <div className="lesson-bubble-row">
+                          {unit.lessons.map((lesson, lessonIndex) => {
+                            const complete =
+                              lessonCompletion.find((item) => item.lesson.id === lesson.id)
+                                ?.complete ?? false;
+
+                            return (
+                              <button
+                                className={`lesson-bubble ${
+                                  selectedLesson.id === lesson.id ? 'active' : ''
+                                } ${complete ? 'complete' : ''}`}
+                                key={lesson.id}
+                                onClick={() => {
+                                  setSelectedLessonId(lesson.id);
+                                  setSelectedSubstepId(getDefaultLessonFlowStepId(lesson));
+                                  setPage('pathway');
+                                }}
+                                title={lesson.title}
+                                type="button"
+                              >
+                                {lessonIndex + 1}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div className="unit-path-actions">
+                          <p className="feedback muted">
+                            Open this world to see its lesson-by-lesson path before you start drilling.
+                          </p>
+                          <button
+                            className="secondary-button"
+                            onClick={() => openUnit(unit)}
+                            type="button"
+                          >
+                            Open {unit.title}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    <p>{unit.description}</p>
-                    <div className="pill-cloud">
-                      <span className="pill">{unit.duration}</span>
-                      <span className="pill accent">{unit.examWeight}</span>
-                      <span className="pill">
-                        {unitComplete}/{unit.lessons.length} lessons
-                      </span>
-                    </div>
-                  </article>
-                );
-              })}
+                    </article>
+                  );
+                })}
+              </div>
             </section>
-          </>
+          </section>
         ) : null}
 
         {page === 'pathway' ? (
-          <section className="pathway-page">
-            <section className="pathway-header card">
-              <div>
-                <p className="eyebrow">Pathway</p>
-                <h1>Choose a world, then open a lesson on its own screen.</h1>
-                <p className="hero-text">
-                  This route is built around {allJourneyLessons.length} guided lessons,
-                  roughly {Math.round(totalJourneyMinutes / 60)} hours total, and deeper
-                  drill sets attached to every lesson.
-                </p>
+          <section className="pathway-detail-page">
+            <div className="unit-switcher-row">
+              {journeyUnits.map((unit, index) => (
+                <button
+                  className={`unit-switcher-chip ${
+                    selectedUnit.id === unit.id ? 'active' : ''
+                  }`}
+                  key={unit.id}
+                  onClick={() => openUnit(unit)}
+                  type="button"
+                >
+                  <span>W{index + 1}</span>
+                  {unit.title}
+                </button>
+              ))}
+            </div>
+
+            <section className="card pathway-detail-header">
+              <div className="lesson-route-head">
+                <button
+                  className="secondary-button"
+                  onClick={() => setPage('home')}
+                  type="button"
+                >
+                  Back home
+                </button>
+                <button
+                  className="primary-button"
+                  onClick={() => openLesson(selectedLesson)}
+                  type="button"
+                >
+                  Open {selectedLesson.title}
+                </button>
               </div>
-              <button
-                className="primary-button"
-                onClick={() => openLesson(nextLesson)}
-                type="button"
-              >
-                Continue {nextLesson.title}
-              </button>
+
+              <div className="pathway-detail-hero">
+                <div>
+                  <p className="eyebrow">World {selectedUnitIndex + 1}</p>
+                  <h1>{selectedUnit.title}</h1>
+                  <p className="hero-text">{selectedUnit.description}</p>
+                  <div className="pill-cloud">
+                    <span className="pill">{selectedUnit.duration}</span>
+                    <span className="pill accent">{selectedUnit.examWeight}</span>
+                    <span className="pill">
+                      {selectedUnitCompletedLessons}/{selectedUnitLessons.length} lessons cleared
+                    </span>
+                  </div>
+                </div>
+
+                <div className="unit-mentor">
+                  <div className="unit-mentor-sprite">
+                    <PixelSprite
+                      label={selectedMentor.name}
+                      palette={selectedMentor.palette}
+                      pixels={selectedMentor.pixels}
+                      pixelSize={7}
+                    />
+                  </div>
+                  <div>
+                    <strong>{selectedMentor.name}</strong>
+                    <p>{selectedMentor.role}</p>
+                  </div>
+                </div>
+              </div>
             </section>
 
-            <section className="world-stack">
-              {journeyUnits.map((unit, index) => {
-                const mentor = mentorRoster[unit.mentorKey];
-                return (
-                  <article className="path-section card" key={unit.id}>
-                    <div className="path-section-head">
-                      <div>
-                        <p className="eyebrow">World {index + 1}</p>
-                        <h2>{unit.title}</h2>
-                        <p className="world-description">{unit.description}</p>
-                      </div>
-                      <div className="unit-head-aside">
-                        <div className="unit-mentor">
-                          <div className="unit-mentor-sprite">
-                            <PixelSprite
-                              label={mentor.name}
-                              palette={mentor.palette}
-                              pixels={mentor.pixels}
-                              pixelSize={6}
-                            />
-                          </div>
+            <section className="card unit-lesson-path-card">
+              <div className="path-section-head">
+                <div>
+                  <p className="eyebrow">Inner bubbles</p>
+                  <h2>Each lesson opens into its own guided sub-path.</h2>
+                </div>
+                <span className="tiny-badge">{selectedUnitLessons.length} lessons</span>
+              </div>
+
+              <div className="lesson-path-rail">
+                {selectedUnitLessons.map((lesson, index) => {
+                  const lessonMission = getMissionById(lesson.missionId);
+                  const complete =
+                    lessonCompletion.find((item) => item.lesson.id === lesson.id)
+                      ?.complete ?? false;
+                  const lessonStops =
+                    3 +
+                    lessonMission.challenges.length +
+                    getLessonPracticeChallenges(lesson).length;
+
+                  return (
+                    <article
+                      className={`lesson-path-node ${
+                        selectedLesson.id === lesson.id ? 'active' : ''
+                      } ${complete ? 'complete' : ''}`}
+                      key={lesson.id}
+                    >
+                      <div className="lesson-path-node-orb">{index + 1}</div>
+                      <div className="lesson-path-node-card">
+                        <div className="lesson-path-card-head">
                           <div>
-                            <strong>{mentor.name}</strong>
-                            <p>{mentor.role}</p>
+                            <p className="eyebrow">Lesson {index + 1}</p>
+                            <h3>{lesson.title}</h3>
                           </div>
+                          <span className="step-tag">
+                            {complete ? 'Cleared' : lesson.duration}
+                          </span>
                         </div>
-                        <span className="tiny-badge">{unit.duration}</span>
-                      </div>
-                    </div>
 
-                    <div className="lesson-list">
-                      {unit.lessons.map((lesson) => {
-                        const lessonMission = getMissionById(lesson.missionId);
-                        const complete =
-                          lessonCompletion.find((item) => item.lesson.id === lesson.id)
-                            ?.complete ?? false;
+                        <p>{lesson.objective}</p>
 
-                        return (
+                        <div className="lesson-stop-row">
+                          <span className="mini-stop">Start</span>
+                          <span className="mini-stop">Teach</span>
+                          <span className="mini-stop">
+                            {lessonMission.challenges.length} checkpoints
+                          </span>
+                          <span className="mini-stop">
+                            {getLessonPracticeChallenges(lesson).length} drills
+                          </span>
+                          <span className="mini-stop">Wrap</span>
+                        </div>
+
+                        <div className="pill-cloud">
+                          <span className="pill">{lessonStops} total stops</span>
+                          <span className="pill">{lesson.practiceCount} practice pulls</span>
+                          {lessonMission.officialTopics.map((topic) => (
+                            <span className="topic-chip" key={`${lesson.id}-${topic}`}>
+                              Topic {topic}
+                            </span>
+                          ))}
+                        </div>
+
+                        <div className="lesson-path-node-actions">
                           <button
-                            className={`lesson-list-card ${
-                              selectedLesson.id === lesson.id ? 'active' : ''
-                            } ${complete ? 'complete' : ''}`}
-                            key={lesson.id}
+                            className="secondary-button"
+                            onClick={() => {
+                              setSelectedLessonId(lesson.id);
+                              setSelectedSubstepId(getDefaultLessonFlowStepId(lesson));
+                            }}
+                            type="button"
+                          >
+                            Preview here
+                          </button>
+                          <button
+                            className="primary-button"
                             onClick={() => openLesson(lesson)}
                             type="button"
                           >
-                            <div className="lesson-list-card-top">
-                              <span className="step-tag">
-                                {complete ? 'Cleared' : lesson.duration}
-                              </span>
-                              <span className="tiny-badge">
-                                {lesson.practiceCount} practice reps
-                              </span>
-                            </div>
-                            <strong>{lesson.title}</strong>
-                            <p>{lesson.objective}</p>
-                            <div className="pill-cloud">
-                              {lessonMission.officialTopics.map((topic) => (
-                                <span className="topic-chip" key={`${lesson.id}-${topic}`}>
-                                  Topic {topic}
-                                </span>
-                              ))}
-                            </div>
+                            Open lesson
                           </button>
-                        );
-                      })}
-                    </div>
-                  </article>
-                );
-              })}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             </section>
           </section>
         ) : null}
 
         {page === 'lesson' ? (
-          <section className="course-layout">
-            <section className="path-panel">
-              <section className="card lesson-route-card">
+          <section className="lesson-page">
+            <section className="lesson-stage">
+              <aside className="card lesson-track-card">
                 <div className="lesson-route-head">
                   <button
                     className="secondary-button"
                     onClick={() => setPage('pathway')}
                     type="button"
                   >
-                    Back to pathway
+                    Back to {selectedUnit.title}
                   </button>
                   <span className="pill">
-                    Lesson {lessonIndex + 1} / {allJourneyLessons.length}
+                    Lesson {selectedLessonIndexInUnit + 1} / {selectedUnitLessons.length}
                   </span>
                 </div>
-                <p className="eyebrow">{selectedUnit.title}</p>
-                <h2>{selectedLesson.title}</h2>
-                <p className="hero-text">{selectedLesson.objective}</p>
-                <div className="pill-cloud">
-                  <span className="pill">{selectedLesson.duration}</span>
-                  <span className="pill accent">{selectedUnit.examWeight}</span>
-                  <span className="pill">{selectedPracticeSection.title}</span>
-                </div>
-                <div className="focus-grid">
-                  {selectedLesson.teachingMoments.map((moment) => (
-                    <article className="focus-card" key={moment}>
-                      <h4>What we teach here</h4>
-                      <p>{moment}</p>
-                    </article>
-                  ))}
-                </div>
-              </section>
 
-              <section className="card lesson-card">
-                <div className="lesson-header">
+                <div className="lesson-track-top">
                   <div>
-                    <p className="eyebrow">
-                      {selectedMission.unit} // {selectedMission.arc}
-                    </p>
-                    <h2>{selectedMission.title}</h2>
+                    <p className="eyebrow">{selectedUnit.title}</p>
+                    <h2>{selectedLesson.title}</h2>
+                    <p className="world-description">{selectedLesson.objective}</p>
                   </div>
-                  <div className="lesson-mentor">
-                    <PixelSprite
-                      label={selectedMentor.name}
-                      palette={selectedMentor.palette}
-                      pixels={selectedMentor.pixels}
-                      pixelSize={9}
-                    />
+                  <div className="unit-mentor">
+                    <div className="unit-mentor-sprite">
+                      <PixelSprite
+                        label={selectedMentor.name}
+                        palette={selectedMentor.palette}
+                        pixels={selectedMentor.pixels}
+                        pixelSize={7}
+                      />
+                    </div>
                     <div>
                       <strong>{selectedMentor.name}</strong>
                       <p>{selectedMentor.role}</p>
@@ -852,96 +1004,201 @@ function App() {
                   </div>
                 </div>
 
-                <div className="lesson-meta">
+                <div className="pill-cloud">
                   <span className="pill">{selectedLesson.duration}</span>
-                  <span className="pill accent">{selectedMission.examWeight}</span>
-                  <span className="pill">Progress {currentMissionProgress}</span>
-                  <span className="pill">{lessonPracticeChallenges.length} lesson reps</span>
+                  <span className="pill accent">{selectedPracticeSection.title}</span>
+                  <span className="pill">Solved {currentLessonProgress}</span>
                 </div>
 
-                <div className="substep-row">
-                  {selectedMissionSubsteps.map((step) => (
-                    <button
-                      className={`substep-chip ${
-                        selectedSubstep.id === step.id ? 'active' : ''
-                      } ${step.done ? 'complete' : ''}`}
-                      key={step.id}
-                      onClick={() => setSelectedSubstepId(step.id)}
-                      type="button"
-                    >
-                      <span>{step.bubbleLabel}</span>
-                      {step.title}
-                    </button>
-                  ))}
-                </div>
+                <div className="lesson-track-rail">
+                  {selectedLessonFlowSteps.map((step, index) => {
+                    const complete = step.done || index < selectedFlowIndex;
 
-                <div className="lesson-focus">
-                  <div className="lesson-focus-head">
-                    <div>
-                      <p className="eyebrow">Focused step</p>
-                      <h3>{selectedSubstep.title}</h3>
-                    </div>
-                    <span className="tiny-badge">{selectedSubstep.bubbleLabel}</span>
+                    return (
+                      <button
+                        className={`lesson-track-step ${
+                          selectedSubstep.id === step.id ? 'active' : ''
+                        } ${complete ? 'complete' : ''}`}
+                        key={step.id}
+                        onClick={() => setSelectedSubstepId(step.id)}
+                        type="button"
+                      >
+                        <span className="lesson-track-step-orb">{step.bubbleLabel}</span>
+                        <div className="lesson-track-step-copy">
+                          <strong>{step.title}</strong>
+                          <p>{step.summary}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </aside>
+
+              <section className="card lesson-workspace-card">
+                <div className="lesson-workspace-head">
+                  <div>
+                    <p className="eyebrow">
+                      {selectedSubstep.lane === 'lesson'
+                        ? 'Lesson lane'
+                        : selectedSubstep.lane === 'checkpoint'
+                          ? 'Checkpoint lane'
+                          : selectedSubstep.lane === 'drill'
+                            ? 'Drill lane'
+                            : 'Wrap lane'}
+                    </p>
+                    <h2>{selectedSubstep.title}</h2>
                   </div>
+                  <span className="tiny-badge">{selectedSubstep.bubbleLabel}</span>
+                </div>
 
-                  {selectedSubstep.kind === 'brief' ? (
+                <div className="lesson-meta">
+                  <span className="pill">{selectedMission.unit}</span>
+                  <span className="pill">{selectedMission.arc}</span>
+                  <span className="pill accent">{selectedMission.examWeight}</span>
+                </div>
+
+                <div className="mentor-callout">
+                  <div className="mentor-callout-avatar">
+                    <PixelSprite
+                      label={selectedMentor.name}
+                      palette={selectedMentor.palette}
+                      pixels={selectedMentor.pixels}
+                      pixelSize={8}
+                    />
+                  </div>
+                  <div>
+                    <strong>{selectedMentor.name}</strong>
+                    <p>
+                      {selectedSubstep.kind === 'brief'
+                        ? selectedMission.story
+                        : selectedSubstep.kind === 'concept'
+                          ? selectedLessonGuide.coachIntro
+                          : selectedSubstep.kind === 'boss'
+                            ? selectedMission.bossMove
+                            : selectedSubstep.summary}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedSubstep.kind === 'brief' ? (
+                  <div className="focus-grid">
+                    <article className="focus-card">
+                      <h4>What this sub-unit covers</h4>
+                      <p>{selectedLesson.objective}</p>
+                    </article>
+                    <article className="focus-card">
+                      <h4>What you will do</h4>
+                      <p>
+                        Learn the idea, clear the checkpoint questions, finish the IDE
+                        drills, then wrap the lesson before moving to the next bubble.
+                      </p>
+                    </article>
+                    {selectedLesson.teachingMoments.map((moment) => (
+                      <article className="focus-card" key={moment}>
+                        <h4>Teaching focus</h4>
+                        <p>{moment}</p>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+
+                {selectedSubstep.kind === 'concept' ? (
+                  <div className="teaching-stack">
+                    <article className="focus-card concept-card lesson-master-card">
+                      <h4>Coach explanation</h4>
+                      <p>{selectedLessonGuide.coachIntro}</p>
+                      <p>{selectedMission.lesson}</p>
+                    </article>
+
                     <div className="focus-grid">
                       <article className="focus-card">
-                        <h4>Why this lesson exists</h4>
-                        <p>{selectedMission.story}</p>
+                        <h4>Mental model</h4>
+                        <p>{selectedLessonGuide.mentalModel}</p>
                       </article>
                       <article className="focus-card">
-                        <h4>Lesson objective</h4>
-                        <p>{selectedLesson.objective}</p>
+                        <h4>Common trap</h4>
+                        <p>{selectedLessonGuide.commonMistake}</p>
                       </article>
                     </div>
-                  ) : null}
 
-                  {selectedSubstep.kind === 'concept' ? (
-                    <div className="teaching-stack">
-                      <article className="focus-card concept-card lesson-master-card">
-                        <h4>Coach explanation</h4>
-                        <p>{selectedLessonGuide.coachIntro}</p>
-                        <p>{selectedMission.lesson}</p>
+                    <article className="focus-card example-card">
+                      <h4>{selectedLessonGuide.workedExample.title}</h4>
+                      <pre className="code-snippet">
+                        <code>{selectedLessonGuide.workedExample.code.join('\n')}</code>
+                      </pre>
+                      <p>{selectedLessonGuide.workedExample.walkthrough}</p>
+                    </article>
+
+                    <div className="focus-grid">
+                      <article className="focus-card">
+                        <h4>Debug rule</h4>
+                        <p>{selectedLessonGuide.debugRule}</p>
                       </article>
-
-                      <div className="focus-grid">
-                        <article className="focus-card">
-                          <h4>Mental model</h4>
-                          <p>{selectedLessonGuide.mentalModel}</p>
-                        </article>
-                        <article className="focus-card">
-                          <h4>Common trap</h4>
-                          <p>{selectedLessonGuide.commonMistake}</p>
-                        </article>
-                      </div>
-
-                      <article className="focus-card example-card">
-                        <h4>{selectedLessonGuide.workedExample.title}</h4>
-                        <pre className="code-snippet">
-                          <code>{selectedLessonGuide.workedExample.code.join('\n')}</code>
-                        </pre>
-                        <p>{selectedLessonGuide.workedExample.walkthrough}</p>
+                      <article className="focus-card">
+                        <h4>Before you move on</h4>
+                        <ul className="teaching-list">
+                          {selectedLessonGuide.checklist.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
                       </article>
-
-                      <div className="focus-grid">
-                        <article className="focus-card">
-                          <h4>Debug rule</h4>
-                          <p>{selectedLessonGuide.debugRule}</p>
-                        </article>
-                        <article className="focus-card">
-                          <h4>Before you move on</h4>
-                          <ul className="teaching-list">
-                            {selectedLessonGuide.checklist.map((item) => (
-                              <li key={item}>{item}</li>
-                            ))}
-                          </ul>
-                        </article>
-                      </div>
                     </div>
-                  ) : null}
+                  </div>
+                ) : null}
 
-                  {selectedSubstep.kind === 'boss' ? (
+                {(activeQuizChallenge || activeFillChallenge) ? (
+                  <article className="focus-card active-step-brief">
+                    <h4>What this stop is checking</h4>
+                    <p>{selectedSubstep.summary}</p>
+                  </article>
+                ) : null}
+
+                {activeQuizChallenge ? (
+                  <QuizCard
+                    challenge={activeQuizChallenge}
+                    selected={quizSelections[activeQuizChallenge.id]}
+                    submitted={Boolean(quizSubmissions[activeQuizChallenge.id])}
+                    onSelect={(optionId) =>
+                      setQuizSelections((current) => ({
+                        ...current,
+                        [activeQuizChallenge.id]: optionId,
+                      }))
+                    }
+                    onSubmit={() =>
+                      setQuizSubmissions((current) => ({
+                        ...current,
+                        [activeQuizChallenge.id]: true,
+                      }))
+                    }
+                  />
+                ) : null}
+
+                {activeFillChallenge ? (
+                  <FillCard
+                    challenge={activeFillChallenge}
+                    mentor={selectedMentor}
+                    submitted={Boolean(fillSubmissions[activeFillChallenge.id])}
+                    values={fillInputs[activeFillChallenge.id] ?? {}}
+                    onChange={(blankId, value) =>
+                      setFillInputs((current) => ({
+                        ...current,
+                        [activeFillChallenge.id]: {
+                          ...(current[activeFillChallenge.id] ?? {}),
+                          [blankId]: value,
+                        },
+                      }))
+                    }
+                    onSubmit={() =>
+                      setFillSubmissions((current) => ({
+                        ...current,
+                        [activeFillChallenge.id]: true,
+                      }))
+                    }
+                  />
+                ) : null}
+
+                {selectedSubstep.kind === 'boss' ? (
+                  <>
                     <div className="focus-grid">
                       <article className="focus-card boss-card">
                         <h4>Boss move</h4>
@@ -952,52 +1209,22 @@ function App() {
                         <p>{selectedLesson.teachingMoments.join('. ')}.</p>
                       </article>
                     </div>
-                  ) : null}
 
-                  {activeQuizChallenge ? (
-                    <QuizCard
-                      challenge={activeQuizChallenge}
-                      selected={quizSelections[activeQuizChallenge.id]}
-                      submitted={Boolean(quizSubmissions[activeQuizChallenge.id])}
-                      onSelect={(optionId) =>
-                        setQuizSelections((current) => ({
-                          ...current,
-                          [activeQuizChallenge.id]: optionId,
-                        }))
-                      }
-                      onSubmit={() =>
-                        setQuizSubmissions((current) => ({
-                          ...current,
-                          [activeQuizChallenge.id]: true,
-                        }))
-                      }
-                    />
-                  ) : null}
-
-                  {activeFillChallenge ? (
-                    <FillCard
-                      challenge={activeFillChallenge}
-                      mentor={selectedMentor}
-                      submitted={Boolean(fillSubmissions[activeFillChallenge.id])}
-                      values={fillInputs[activeFillChallenge.id] ?? {}}
-                      onChange={(blankId, value) =>
-                        setFillInputs((current) => ({
-                          ...current,
-                          [activeFillChallenge.id]: {
-                            ...(current[activeFillChallenge.id] ?? {}),
-                            [blankId]: value,
-                          },
-                        }))
-                      }
-                      onSubmit={() =>
-                        setFillSubmissions((current) => ({
-                          ...current,
-                          [activeFillChallenge.id]: true,
-                        }))
-                      }
-                    />
-                  ) : null}
-                </div>
+                    <article className="focus-card">
+                      <h4>Exam transfer</h4>
+                      <p>
+                        {frqBlueprint[0].cue} Keep these unit weights in mind as you move on:
+                      </p>
+                      <div className="pill-cloud">
+                        {examBlueprint.unitWeights.map((unit) => (
+                          <span className="pill" key={unit}>
+                            {unit}
+                          </span>
+                        ))}
+                      </div>
+                    </article>
+                  </>
+                ) : null}
 
                 <div className="topic-chip-row">
                   {selectedMission.officialTopics.map((topic) => (
@@ -1009,98 +1236,54 @@ function App() {
               </section>
             </section>
 
-            <aside className="lesson-panel">
-              <section className="card practice-card">
-                <div className="practice-card-head">
-                  <div>
-                    <p className="eyebrow">Lesson drill pack</p>
-                    <h2>{selectedPracticeSection.title}</h2>
-                  </div>
-                  <div className="practice-stat-block">
-                    <strong>
-                      {selectedPracticeCorrect}/{lessonPracticeChallenges.length}
-                    </strong>
-                    <p>completed in this lesson pack</p>
-                  </div>
-                </div>
+            <section className="card lesson-progress-dock">
+              <div className="lesson-progress-copy">
+                <p className="eyebrow">Sub-unit progress</p>
+                <strong>
+                  {selectedLesson.title} · Step {selectedFlowIndex + 1} of{' '}
+                  {selectedLessonFlowSteps.length}
+                </strong>
+              </div>
+              <div className="lesson-progress-meter">
+                <span style={{ width: `${selectedFlowProgress}%` }} />
+              </div>
+              <div className="lesson-progress-actions">
+                <button
+                  className="secondary-button"
+                  disabled={!previousLessonFlowStep}
+                  onClick={() =>
+                    previousLessonFlowStep &&
+                    setSelectedSubstepId(previousLessonFlowStep.id)
+                  }
+                  type="button"
+                >
+                  Previous
+                </button>
+                <button
+                  className="primary-button"
+                  onClick={() => {
+                    if (nextLessonFlowStep) {
+                      setSelectedSubstepId(nextLessonFlowStep.id);
+                      return;
+                    }
 
-                <p className="practice-note">{selectedPracticeSection.sourceNote}</p>
+                    if (nextLessonInUnit) {
+                      openLesson(nextLessonInUnit);
+                      return;
+                    }
 
-                <div className="practice-controls">
-                  <span className="pill">{selectedLesson.duration}</span>
-                  <span className="pill">{lessonPracticeChallenges.length} guided reps</span>
-                  <span className="pill">{selectedPracticeSection.unit}</span>
-                </div>
-
-                <div className="practice-stack">
-                  {lessonPracticeChallenges.map((challenge) =>
-                    challenge.type === 'quiz' ? (
-                      <QuizCard
-                        challenge={challenge}
-                        key={challenge.id}
-                        selected={quizSelections[challenge.id]}
-                        submitted={Boolean(quizSubmissions[challenge.id])}
-                        onSelect={(optionId) =>
-                          setQuizSelections((current) => ({
-                            ...current,
-                            [challenge.id]: optionId,
-                          }))
-                        }
-                        onSubmit={() =>
-                          setQuizSubmissions((current) => ({
-                            ...current,
-                            [challenge.id]: true,
-                          }))
-                        }
-                      />
-                    ) : (
-                      <FillCard
-                        challenge={challenge}
-                        key={challenge.id}
-                        mentor={selectedMentor}
-                        submitted={Boolean(fillSubmissions[challenge.id])}
-                        values={fillInputs[challenge.id] ?? {}}
-                        onChange={(blankId, value) =>
-                          setFillInputs((current) => ({
-                            ...current,
-                            [challenge.id]: {
-                              ...(current[challenge.id] ?? {}),
-                              [blankId]: value,
-                            },
-                          }))
-                        }
-                        onSubmit={() =>
-                          setFillSubmissions((current) => ({
-                            ...current,
-                            [challenge.id]: true,
-                          }))
-                        }
-                      />
-                    ),
-                  )}
-                </div>
-              </section>
-
-              <section className="card side-card">
-                <p className="eyebrow">Official Exam Mode</p>
-                <h2>Four boss types you need to beat</h2>
-                <div className="frq-grid">
-                  {frqBlueprint.map((item) => (
-                    <div className="frq-item" key={item.title}>
-                      <strong>{item.title}</strong>
-                      <p>{item.cue}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="pill-cloud">
-                  {examBlueprint.unitWeights.map((unit) => (
-                    <span className="pill" key={unit}>
-                      {unit}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            </aside>
+                    setPage('pathway');
+                  }}
+                  type="button"
+                >
+                  {nextLessonFlowStep
+                    ? 'Next step'
+                    : nextLessonInUnit
+                      ? 'Next lesson'
+                      : 'Back to world'}
+                </button>
+              </div>
+            </section>
           </section>
         ) : null}
       </main>
