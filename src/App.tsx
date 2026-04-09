@@ -6,6 +6,7 @@ import {
   mentorRoster,
   missions,
   type FillChallenge,
+  type Mission,
   type QuizChallenge,
 } from './data/course';
 
@@ -52,11 +53,12 @@ function readStoredProgress(): StoredProgress {
       };
     }
 
+    const parsed = JSON.parse(saved);
     return {
-      quizSelections: JSON.parse(saved).quizSelections ?? {},
-      quizSubmissions: JSON.parse(saved).quizSubmissions ?? {},
-      fillInputs: JSON.parse(saved).fillInputs ?? {},
-      fillSubmissions: JSON.parse(saved).fillSubmissions ?? {},
+      quizSelections: parsed.quizSelections ?? {},
+      quizSubmissions: parsed.quizSubmissions ?? {},
+      fillInputs: parsed.fillInputs ?? {},
+      fillSubmissions: parsed.fillSubmissions ?? {},
     };
   } catch {
     return {
@@ -66,6 +68,44 @@ function readStoredProgress(): StoredProgress {
       fillSubmissions: {},
     };
   }
+}
+
+function isFillBlankCorrect(
+  challenge: FillChallenge,
+  values: Record<string, string> | undefined,
+) {
+  return challenge.blanks.every((blank) => {
+    const value = values?.[blank.id] ?? '';
+    const accepted = [blank.answer, ...(blank.alternates ?? [])];
+
+    return accepted.some(
+      (candidate) =>
+        normalizeCompact(candidate) === normalizeCompact(value) ||
+        normalize(candidate) === normalize(value),
+    );
+  });
+}
+
+function isChallengeCorrect(
+  challenge: Mission['challenges'][number],
+  quizSelections: QuizSelections,
+  fillInputs: FillInputs,
+) {
+  if (challenge.type === 'quiz') {
+    return quizSelections[challenge.id] === challenge.answer;
+  }
+
+  return isFillBlankCorrect(challenge, fillInputs[challenge.id]);
+}
+
+function isMissionComplete(
+  mission: Mission,
+  quizSelections: QuizSelections,
+  fillInputs: FillInputs,
+) {
+  return mission.challenges.every((challenge) =>
+    isChallengeCorrect(challenge, quizSelections, fillInputs),
+  );
 }
 
 function App() {
@@ -84,8 +124,21 @@ function App() {
     storedProgress.fillSubmissions,
   );
 
+  const missionStates = useMemo(
+    () =>
+      missions.map((mission) => ({
+        mission,
+        complete: isMissionComplete(mission, quizSelections, fillInputs),
+      })),
+    [fillInputs, quizSelections],
+  );
+
   const selectedMission =
-    missions.find((mission) => mission.id === selectedMissionId) ?? missions[0];
+    missionStates.find((state) => state.mission.id === selectedMissionId)
+      ?.mission ?? missions[0];
+  const selectedMissionIndex = missions.findIndex(
+    (mission) => mission.id === selectedMission.id,
+  );
 
   const scoredChallengeIds = useMemo(
     () =>
@@ -96,29 +149,21 @@ function App() {
   );
 
   const totalXp = missions.reduce((sum, mission) => sum + mission.xp, 0);
+  const completedMissions = missionStates.filter((state) => state.complete).length;
 
-  const earnedXp = useMemo(() => {
-    return missions.reduce((sum, mission) => {
-      const missionCorrect = mission.challenges.every((challenge) => {
-        if (challenge.type === 'quiz') {
-          return quizSelections[challenge.id] === challenge.answer;
-        }
+  const earnedXp = missionStates.reduce(
+    (sum, state) => sum + (state.complete ? state.mission.xp : 0),
+    0,
+  );
 
-        return challenge.blanks.every((blank) => {
-          const value = fillInputs[challenge.id]?.[blank.id] ?? '';
-          const accepted = [blank.answer, ...(blank.alternates ?? [])];
-
-          return accepted.some(
-            (candidate) =>
-              normalizeCompact(candidate) === normalizeCompact(value) ||
-              normalize(candidate) === normalize(value),
-          );
-        });
-      });
-
-      return missionCorrect ? sum + mission.xp : sum;
-    }, 0);
-  }, [fillInputs, quizSelections]);
+  const correctCount = missions.reduce((sum, mission) => {
+    return (
+      sum +
+      mission.challenges.filter((challenge) =>
+        isChallengeCorrect(challenge, quizSelections, fillInputs),
+      ).length
+    );
+  }, 0);
 
   const answeredCount = scoredChallengeIds.filter((challengeId) => {
     if (quizSelections[challengeId]) {
@@ -128,49 +173,60 @@ function App() {
     return Boolean(fillSubmissions[challengeId]);
   }).length;
 
-  const correctCount = useMemo(() => {
-    return missions.reduce((sum, mission) => {
-      return (
-        sum +
-        mission.challenges.filter((challenge) => {
-          if (challenge.type === 'quiz') {
-            return quizSelections[challenge.id] === challenge.answer;
-          }
-
-          return challenge.blanks.every((blank) => {
-            const value = fillInputs[challenge.id]?.[blank.id] ?? '';
-            const accepted = [blank.answer, ...(blank.alternates ?? [])];
-
-            return accepted.some(
-              (candidate) =>
-                normalizeCompact(candidate) === normalizeCompact(value) ||
-                normalize(candidate) === normalize(value),
-            );
-          });
-        }).length
-      );
-    }, 0);
-  }, [fillInputs, quizSelections]);
-
   const readiness = Math.round((correctCount / scoredChallengeIds.length) * 100);
-  const missionProgress = `${missions.filter((mission) =>
-    mission.challenges.every((challenge) => {
+  const streak = missionStates.reduce((count, state) => {
+    if (count !== missionStates.indexOf(state)) {
+      return count;
+    }
+    return state.complete ? count + 1 : count;
+  }, 0);
+
+  const firstIncompleteIndex = missionStates.findIndex((state) => !state.complete);
+  const nextMission =
+    missionStates[firstIncompleteIndex === -1 ? missions.length - 1 : firstIncompleteIndex]
+      .mission;
+  const unlockedIndex =
+    firstIncompleteIndex === -1
+      ? missions.length - 1
+      : Math.min(firstIncompleteIndex + 1, missions.length - 1);
+
+  const currentIncorrectChecks = selectedMission.challenges.reduce(
+    (sum, challenge) => {
       if (challenge.type === 'quiz') {
-        return quizSelections[challenge.id] === challenge.answer;
+        if (!quizSubmissions[challenge.id]) {
+          return sum;
+        }
+
+        return quizSelections[challenge.id] === challenge.answer ? sum : sum + 1;
       }
 
-      return challenge.blanks.every((blank) => {
-        const value = fillInputs[challenge.id]?.[blank.id] ?? '';
-        const accepted = [blank.answer, ...(blank.alternates ?? [])];
+      if (!fillSubmissions[challenge.id]) {
+        return sum;
+      }
 
-        return accepted.some(
-          (candidate) =>
-            normalizeCompact(candidate) === normalizeCompact(value) ||
-            normalize(candidate) === normalize(value),
-        );
-      });
-    }),
-  ).length}/${missions.length}`;
+      return isFillBlankCorrect(challenge, fillInputs[challenge.id]) ? sum : sum + 1;
+    },
+    0,
+  );
+
+  const hearts = Math.max(1, 5 - currentIncorrectChecks);
+  const gems = completedMissions * 15 + Math.round(readiness / 5);
+
+  const unitSections = useMemo(() => {
+    return missions.reduce<Array<{ unit: string; missions: Mission[] }>>(
+      (sections, mission) => {
+        const existing = sections.find((section) => section.unit === mission.unit);
+        if (existing) {
+          existing.missions.push(mission);
+          return sections;
+        }
+
+        sections.push({ unit: mission.unit, missions: [mission] });
+        return sections;
+      },
+      [],
+    );
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -184,268 +240,310 @@ function App() {
     );
   }, [fillInputs, fillSubmissions, quizSelections, quizSubmissions]);
 
+  const selectedMentor = mentorRoster[selectedMission.mentor];
+  const currentMissionProgress = `${
+    selectedMission.challenges.filter((challenge) =>
+      isChallengeCorrect(challenge, quizSelections, fillInputs),
+    ).length
+  }/${selectedMission.challenges.length}`;
+
   return (
     <div className="app-shell">
-      <div className="background-grid" />
+      <div className="background-sky" />
+      <div className="background-hills" />
       <main className="app">
-        <section className="hero card">
+        <header className="hud-bar card">
+          <div className="hud-brand">
+            <div className="brand-sprite">
+              <PixelSprite
+                label={selectedMentor.name}
+                palette={selectedMentor.palette}
+                pixels={selectedMentor.pixels}
+                pixelSize={7}
+              />
+            </div>
+            <div>
+              <p className="eyebrow">MorCSA</p>
+              <strong>CSA Quest Path</strong>
+            </div>
+          </div>
+
+          <div className="hud-stats">
+            <div className="hud-pill hearts">Hearts {hearts}/5</div>
+            <div className="hud-pill streak">Streak {streak}</div>
+            <div className="hud-pill xp">{earnedXp} XP</div>
+            <div className="hud-pill gems">{gems} Gems</div>
+          </div>
+        </header>
+
+        <section className="hero-banner card">
           <div className="hero-copy">
-            <p className="eyebrow">MorCSA // APCSA Score-5 Quest</p>
-            <h1>Play through a focused 10-hour APCSA prep run.</h1>
+            <p className="eyebrow">Duolingo energy, APCSA brain</p>
+            <h1>Pixel-path your way to a 5 in AP Computer Science A.</h1>
             <p className="hero-text">
-              This learning game maps to the official 2025 APCSA course
-              description with mini questions, fill-in-the-blank code,
-              explanations, and exam-aware progression from syntax basics to FRQ
-              strategy.
+              Short lessons. Immediate feedback. Fill-in-code reps. Pixel art
+              mentors. Real APCSA topics from variables and loops to FRQs,
+              ArrayLists, and 2D arrays.
             </p>
-            <div className="hero-stats">
-              <div>
-                <span className="stat-label">Estimated time</span>
-                <strong>{examBlueprint.totalTime}</strong>
-              </div>
-              <div>
-                <span className="stat-label">Exam format</span>
-                <strong>{examBlueprint.examFormat}</strong>
-              </div>
-              <div>
-                <span className="stat-label">Readiness</span>
-                <strong>{readiness}%</strong>
+
+            <div className="hero-actions">
+              <button
+                className="primary-button hero-button"
+                onClick={() => setSelectedMissionId(nextMission.id)}
+                type="button"
+              >
+                Continue {nextMission.title}
+              </button>
+              <div className="hero-badges">
+                <span className="pill">10-hour path</span>
+                <span className="pill">42 MCQ + 4 FRQ aware</span>
+                <span className="pill">Pixel mentors</span>
               </div>
             </div>
           </div>
 
-          <div className="hero-party">
-            {Object.values(mentorRoster).map((mentor) => (
-              <div className="mentor-chip" key={mentor.name}>
-                <PixelSprite
-                  label={mentor.name}
-                  palette={mentor.palette}
-                  pixels={mentor.pixels}
-                  pixelSize={8}
-                />
-                <div>
-                  <strong>{mentor.name}</strong>
-                  <p>{mentor.role}</p>
+          <div className="hero-stage">
+            <div className="speech-bubble">
+              <strong>{selectedMentor.name}</strong>
+              <p>
+                Keep the streak alive. Clear one lesson at a time and the full
+                APCSA map starts feeling very beatable.
+              </p>
+            </div>
+
+            <div className="stage-party">
+              {Object.values(mentorRoster).map((mentor) => (
+                <div className="stage-mentor" key={mentor.name}>
+                  <PixelSprite
+                    label={mentor.name}
+                    palette={mentor.palette}
+                    pixels={mentor.pixels}
+                    pixelSize={10}
+                  />
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="dashboard">
-          <article className="card progress-card">
-            <p className="eyebrow">Campaign Progress</p>
-            <div className="progress-grid">
-              <div>
-                <span className="stat-label">XP earned</span>
-                <strong>
-                  {earnedXp}/{totalXp}
-                </strong>
-              </div>
-              <div>
-                <span className="stat-label">Challenges checked</span>
-                <strong>
-                  {answeredCount}/{scoredChallengeIds.length}
-                </strong>
-              </div>
-              <div>
-                <span className="stat-label">Missions cleared</span>
-                <strong>{missionProgress}</strong>
-              </div>
-            </div>
+        <section className="summary-strip">
+          <article className="card summary-card">
+            <span className="summary-label">Course progress</span>
+            <strong>
+              {completedMissions}/{missions.length} lessons mastered
+            </strong>
             <div className="meter">
               <span style={{ width: `${Math.max(readiness, 8)}%` }} />
             </div>
-            <p className="support-copy">
-              Score-5 focus means strong tracing, careful method calls, class
-              design, and repeatable array/ArrayList/2D array patterns.
+            <p>
+              Readiness score: {readiness}% · Checks answered: {answeredCount}/
+              {scoredChallengeIds.length}
             </p>
           </article>
 
-          <article className="card blueprint-card">
-            <p className="eyebrow">Official Blueprint</p>
-            <p className="support-copy">{examBlueprint.source}</p>
-            <div className="pill-row">
-              {examBlueprint.unitWeights.map((unit) => (
-                <span className="pill" key={unit}>
-                  {unit}
-                </span>
-              ))}
-            </div>
+          <article className="card summary-card">
+            <span className="summary-label">Today’s quest</span>
+            <strong>{nextMission.title}</strong>
+            <p>{nextMission.focus}</p>
+          </article>
+
+          <article className="card summary-card">
+            <span className="summary-label">Exam blueprint</span>
+            <strong>{examBlueprint.examFormat}</strong>
+            <p>{examBlueprint.totalTime} sprint path</p>
           </article>
         </section>
 
-        <section className="map-layout">
-          <aside className="card mission-map">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">World Map</p>
-                <h2>Ten missions, one exam arc</h2>
-              </div>
-              <span className="tiny-badge">About 10 hours total</span>
-            </div>
+        <section className="course-layout">
+          <section className="path-panel">
+            {unitSections.map((section, sectionIndex) => (
+              <article className="path-section card" key={section.unit}>
+                <div className="path-section-head">
+                  <div>
+                    <p className="eyebrow">World {sectionIndex + 1}</p>
+                    <h2>{section.unit}</h2>
+                  </div>
+                  <span className="tiny-badge">
+                    {
+                      missionStates.filter(
+                        (state) =>
+                          state.mission.unit === section.unit && state.complete,
+                      ).length
+                    }
+                    /{section.missions.length} cleared
+                  </span>
+                </div>
 
-            <div className="mission-list">
-              {missions.map((mission, index) => {
-                const complete = mission.challenges.every((challenge) => {
-                  if (challenge.type === 'quiz') {
-                    return quizSelections[challenge.id] === challenge.answer;
-                  }
+                <div className="path-rail">
+                  {section.missions.map((mission, index) => {
+                    const globalIndex = missions.findIndex((item) => item.id === mission.id);
+                    const state = missionStates[globalIndex];
+                    const isActive = mission.id === selectedMission.id;
+                    const isNext = mission.id === nextMission.id;
+                    const isUnlocked = globalIndex <= unlockedIndex;
+                    const sideClass = index % 2 === 0 ? 'left' : 'right';
 
-                  return challenge.blanks.every((blank) => {
-                    const value = fillInputs[challenge.id]?.[blank.id] ?? '';
-                    const accepted = [blank.answer, ...(blank.alternates ?? [])];
-
-                    return accepted.some(
-                      (candidate) =>
-                        normalizeCompact(candidate) ===
-                          normalizeCompact(value) ||
-                        normalize(candidate) === normalize(value),
+                    return (
+                      <button
+                        className={`path-step ${sideClass} ${
+                          state.complete ? 'complete' : ''
+                        } ${isActive ? 'active' : ''} ${
+                          isUnlocked ? 'unlocked' : 'future'
+                        }`}
+                        key={mission.id}
+                        onClick={() => setSelectedMissionId(mission.id)}
+                        type="button"
+                      >
+                        <span className="path-line" />
+                        <span className="path-orb">
+                          {state.complete ? '✓' : String(globalIndex + 1)}
+                        </span>
+                        <div className="step-card">
+                          <span className="step-tag">
+                            {isNext
+                              ? 'Next lesson'
+                              : state.complete
+                                ? 'Mastered'
+                                : isUnlocked
+                                  ? 'Ready'
+                                  : 'Coming up'}
+                          </span>
+                          <strong>{mission.title}</strong>
+                          <p>
+                            {mission.duration} · {mission.focus}
+                          </p>
+                        </div>
+                      </button>
                     );
-                  });
-                });
-
-                return (
-                  <button
-                    className={`mission-node ${
-                      mission.id === selectedMissionId ? 'active' : ''
-                    } ${complete ? 'complete' : ''}`}
-                    key={mission.id}
-                    onClick={() => setSelectedMissionId(mission.id)}
-                    type="button"
-                  >
-                    <span className="node-index">
-                      {String(index + 1).padStart(2, '0')}
-                    </span>
-                    <div>
-                      <strong>{mission.title}</strong>
-                      <p>
-                        {mission.unit} · {mission.duration} · {mission.focus}
-                      </p>
-                    </div>
-                    <span className="node-xp">{mission.xp} XP</span>
-                  </button>
-                );
-              })}
-            </div>
-          </aside>
-
-          <section className="card mission-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">
-                  {selectedMission.unit} // {selectedMission.arc}
-                </p>
-                <h2>{selectedMission.title}</h2>
-              </div>
-              <div className="mission-mentor">
-                <PixelSprite
-                  label={mentorRoster[selectedMission.mentor].name}
-                  palette={mentorRoster[selectedMission.mentor].palette}
-                  pixels={mentorRoster[selectedMission.mentor].pixels}
-                  pixelSize={9}
-                />
-                <div>
-                  <strong>{mentorRoster[selectedMission.mentor].name}</strong>
-                  <p>{mentorRoster[selectedMission.mentor].role}</p>
+                  })}
                 </div>
-              </div>
-            </div>
-
-            <div className="pill-row">
-              <span className="pill accent">{selectedMission.examWeight}</span>
-              {selectedMission.officialTopics.map((topic) => (
-                <span className="pill" key={topic}>
-                  Topic {topic}
-                </span>
-              ))}
-            </div>
-
-            <p className="story">{selectedMission.story}</p>
-            <div className="lesson-grid">
-              <article>
-                <h3>What this mission teaches</h3>
-                <p>{selectedMission.lesson}</p>
               </article>
-              <article>
-                <h3>Boss move</h3>
-                <p>{selectedMission.bossMove}</p>
-              </article>
-            </div>
-
-            <div className="challenge-stack">
-              {selectedMission.challenges.map((challenge) =>
-                challenge.type === 'quiz' ? (
-                  <QuizCard
-                    challenge={challenge}
-                    key={challenge.id}
-                    selected={quizSelections[challenge.id]}
-                    submitted={Boolean(quizSubmissions[challenge.id])}
-                    onSelect={(optionId) =>
-                      setQuizSelections((current) => ({
-                        ...current,
-                        [challenge.id]: optionId,
-                      }))
-                    }
-                    onSubmit={() =>
-                      setQuizSubmissions((current) => ({
-                        ...current,
-                        [challenge.id]: true,
-                      }))
-                    }
-                  />
-                ) : (
-                  <FillCard
-                    challenge={challenge}
-                    key={challenge.id}
-                    submitted={Boolean(fillSubmissions[challenge.id])}
-                    values={fillInputs[challenge.id] ?? {}}
-                    onChange={(blankId, value) =>
-                      setFillInputs((current) => ({
-                        ...current,
-                        [challenge.id]: {
-                          ...(current[challenge.id] ?? {}),
-                          [blankId]: value,
-                        },
-                      }))
-                    }
-                    onSubmit={() =>
-                      setFillSubmissions((current) => ({
-                        ...current,
-                        [challenge.id]: true,
-                      }))
-                    }
-                  />
-                ),
-              )}
-            </div>
+            ))}
           </section>
-        </section>
 
-        <section className="final-row">
-          <article className="card frq-card">
-            <p className="eyebrow">Free-Response Bosses</p>
-            <h2>Train for the four official FRQ archetypes</h2>
-            <div className="frq-grid">
-              {frqBlueprint.map((item) => (
-                <div className="frq-item" key={item.title}>
-                  <strong>{item.title}</strong>
-                  <p>{item.cue}</p>
+          <aside className="lesson-panel">
+            <section className="card lesson-card">
+              <div className="lesson-header">
+                <div>
+                  <p className="eyebrow">
+                    {selectedMission.unit} // {selectedMission.arc}
+                  </p>
+                  <h2>{selectedMission.title}</h2>
                 </div>
-              ))}
-            </div>
-          </article>
+                <div className="lesson-mentor">
+                  <PixelSprite
+                    label={selectedMentor.name}
+                    palette={selectedMentor.palette}
+                    pixels={selectedMentor.pixels}
+                    pixelSize={9}
+                  />
+                  <div>
+                    <strong>{selectedMentor.name}</strong>
+                    <p>{selectedMentor.role}</p>
+                  </div>
+                </div>
+              </div>
 
-          <article className="card strategy-card">
-            <p className="eyebrow">Score-5 Strategy</p>
-            <h2>What this site is optimizing for</h2>
-            <ul className="strategy-list">
-              <li>Fast code tracing without panic.</li>
-              <li>Reliable loop and conditional patterns.</li>
-              <li>Specification-first FRQ writing.</li>
-              <li>Low-error array, ArrayList, and 2D array traversal.</li>
-            </ul>
-          </article>
+              <div className="lesson-meta">
+                <span className="pill">Lesson {selectedMissionIndex + 1}</span>
+                <span className="pill accent">{selectedMission.examWeight}</span>
+                <span className="pill">{selectedMission.duration}</span>
+                <span className="pill">{selectedMission.xp} XP</span>
+                <span className="pill">Progress {currentMissionProgress}</span>
+              </div>
+
+              <div className="lesson-callout">
+                <h3>Mission story</h3>
+                <p>{selectedMission.story}</p>
+              </div>
+
+              <div className="lesson-duo-grid">
+                <article>
+                  <h3>Learn it</h3>
+                  <p>{selectedMission.lesson}</p>
+                </article>
+                <article>
+                  <h3>Boss move</h3>
+                  <p>{selectedMission.bossMove}</p>
+                </article>
+              </div>
+
+              <div className="topic-chip-row">
+                {selectedMission.officialTopics.map((topic) => (
+                  <span className="topic-chip" key={topic}>
+                    Topic {topic}
+                  </span>
+                ))}
+              </div>
+
+              <div className="challenge-stack">
+                {selectedMission.challenges.map((challenge) =>
+                  challenge.type === 'quiz' ? (
+                    <QuizCard
+                      challenge={challenge}
+                      key={challenge.id}
+                      selected={quizSelections[challenge.id]}
+                      submitted={Boolean(quizSubmissions[challenge.id])}
+                      onSelect={(optionId) =>
+                        setQuizSelections((current) => ({
+                          ...current,
+                          [challenge.id]: optionId,
+                        }))
+                      }
+                      onSubmit={() =>
+                        setQuizSubmissions((current) => ({
+                          ...current,
+                          [challenge.id]: true,
+                        }))
+                      }
+                    />
+                  ) : (
+                    <FillCard
+                      challenge={challenge}
+                      key={challenge.id}
+                      submitted={Boolean(fillSubmissions[challenge.id])}
+                      values={fillInputs[challenge.id] ?? {}}
+                      onChange={(blankId, value) =>
+                        setFillInputs((current) => ({
+                          ...current,
+                          [challenge.id]: {
+                            ...(current[challenge.id] ?? {}),
+                            [blankId]: value,
+                          },
+                        }))
+                      }
+                      onSubmit={() =>
+                        setFillSubmissions((current) => ({
+                          ...current,
+                          [challenge.id]: true,
+                        }))
+                      }
+                    />
+                  ),
+                )}
+              </div>
+            </section>
+
+            <section className="card side-card">
+              <p className="eyebrow">Official Exam Mode</p>
+              <h2>Four boss types you need to beat</h2>
+              <div className="frq-grid">
+                {frqBlueprint.map((item) => (
+                  <div className="frq-item" key={item.title}>
+                    <strong>{item.title}</strong>
+                    <p>{item.cue}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="pill-cloud">
+                {examBlueprint.unitWeights.map((unit) => (
+                  <span className="pill" key={unit}>
+                    {unit}
+                  </span>
+                ))}
+              </div>
+            </section>
+          </aside>
         </section>
       </main>
     </div>
@@ -472,7 +570,7 @@ function QuizCard({
   return (
     <article className="challenge-card">
       <div className="challenge-topline">
-        <span className="tiny-badge">Mini Question</span>
+        <span className="tiny-badge">Quick practice</span>
       </div>
       <h3>{challenge.prompt}</h3>
       <div className="option-grid">
@@ -510,7 +608,7 @@ function QuizCard({
           </p>
         ) : (
           <p className="feedback muted">
-            Submit when you’re ready and the explanation will unlock.
+            Tap an option, check it, and keep the streak moving.
           </p>
         )}
       </div>
@@ -533,21 +631,12 @@ function FillCard({
   onChange,
   onSubmit,
 }: FillCardProps) {
-  const isCorrect = challenge.blanks.every((blank) => {
-    const value = values[blank.id] ?? '';
-    const accepted = [blank.answer, ...(blank.alternates ?? [])];
-
-    return accepted.some(
-      (candidate) =>
-        normalizeCompact(candidate) === normalizeCompact(value) ||
-        normalize(candidate) === normalize(value),
-    );
-  });
+  const isCorrect = isFillBlankCorrect(challenge, values);
 
   return (
     <article className="challenge-card code-card">
       <div className="challenge-topline">
-        <span className="tiny-badge alt">Fill the blank code</span>
+        <span className="tiny-badge alt">Code puzzle</span>
       </div>
       <h3>{challenge.prompt}</h3>
       <pre className="code-snippet">
@@ -577,7 +666,7 @@ function FillCard({
           </p>
         ) : (
           <p className="feedback muted">
-            Enter code fragments exactly like you would on paper.
+            Fill it like exam paper code, then lock it in.
           </p>
         )}
       </div>
