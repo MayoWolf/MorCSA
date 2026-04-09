@@ -1568,6 +1568,12 @@ input {
   color: #3d617f;
 }
 
+.mini-stop.ced {
+  background: #eef8e8;
+  color: #2f7d25;
+  border-color: #d4ebc7;
+}
+
 .unit-path-actions,
 .lesson-path-node-actions {
   display: flex;
@@ -1698,6 +1704,53 @@ input {
 .lesson-workspace-card {
   display: grid;
   gap: 18px;
+}
+
+.ced-subunit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.ced-subunit-grid.compact {
+  margin-top: 0;
+}
+
+.ced-subunit-card {
+  padding: 16px;
+  border-radius: 20px;
+  border: 2px solid #dcebf5;
+  background: #ffffff;
+}
+
+.ced-subunit-card strong,
+.ced-topic-card strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #2f7d25;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.ced-subunit-card h4,
+.ced-topic-card h4 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.ced-subunit-card p,
+.ced-topic-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.ced-subunit-card.compact {
+  padding: 14px;
+}
+
+.ced-topic-card {
+  background: linear-gradient(180deg, #f4fde9, #ffffff);
 }
 
 .lesson-workspace-head {
@@ -1858,7 +1911,8 @@ input {
   .frq-grid,
   .focus-grid,
   .ide-body,
-  .route-summary-grid {
+  .route-summary-grid,
+  .ced-subunit-grid {
     grid-template-columns: 1fr;
   }
 

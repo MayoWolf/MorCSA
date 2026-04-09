@@ -16,9 +16,12 @@ import {
 } from './data/practiceDecks';
 import { lessonGuides } from './data/lessonGuides';
 import {
+  cedSubunitCatalog,
   courseLevels,
+  getLessonCedSubunits,
   journeyUnits,
   totalJourneyMinutes,
+  type CedSubunit,
   type CourseLevel,
   type JourneyLesson,
   type JourneyUnit,
@@ -59,6 +62,7 @@ type LessonFlowStep = {
   done: boolean;
   lane: 'lesson' | 'checkpoint' | 'drill' | 'wrap';
   challenge?: PracticeChallenge;
+  subunit?: CedSubunit;
 };
 
 type MentorProfile = (typeof mentorRoster)[keyof typeof mentorRoster];
@@ -252,6 +256,16 @@ function buildLessonFlowSteps(
   fillInputs: FillInputs,
 ): LessonFlowStep[] {
   const lessonPractice = getLessonPracticeChallenges(lesson);
+  const conceptSteps = getLessonCedSubunits(lesson).map((subunit) => ({
+    id: `${lesson.id}-concept-${subunit.code}`,
+    kind: 'concept' as const,
+    bubbleLabel: subunit.code,
+    title: `${subunit.code} ${subunit.title}`,
+    summary: subunit.explanation,
+    done: false,
+    lane: 'lesson' as const,
+    subunit,
+  }));
   const checkpointSteps = mission.challenges.map((challenge, index) => ({
     id: challenge.id,
     kind: challenge.type,
@@ -283,15 +297,7 @@ function buildLessonFlowSteps(
       done: false,
       lane: 'lesson' as const,
     },
-    {
-      id: `${lesson.id}-teach`,
-      kind: 'concept' as const,
-      bubbleLabel: 'Teach',
-      title: 'Teach It',
-      summary: mission.lesson,
-      done: false,
-      lane: 'lesson' as const,
-    },
+    ...conceptSteps,
     ...checkpointSteps,
     ...drillSteps,
     {
@@ -442,6 +448,10 @@ function App() {
     () => getLessonPracticeChallenges(selectedLesson),
     [selectedLesson],
   );
+  const selectedLessonCedSubunits = useMemo(
+    () => getLessonCedSubunits(selectedLesson),
+    [selectedLesson],
+  );
   const selectedPracticeSection = getPracticeSectionById(selectedLesson.practiceSectionId);
   const selectedLessonFlowSteps = useMemo(
     () =>
@@ -561,6 +571,7 @@ function App() {
   const previousLessonFlowStep = selectedLessonFlowSteps[selectedFlowIndex - 1];
   const nextLessonFlowStep = selectedLessonFlowSteps[selectedFlowIndex + 1];
   const nextLessonInUnit = selectedUnitLessons[selectedLessonIndexInUnit + 1];
+  const totalCedSubunits = Object.keys(cedSubunitCatalog).length;
 
   useEffect(() => {
     try {
@@ -697,7 +708,10 @@ function App() {
                 </article>
                 <article className="focus-card">
                   <h4>Readiness</h4>
-                  <p>{readiness}% exam readiness with {Math.round(totalJourneyMinutes / 60)} hours mapped out.</p>
+                  <p>
+                    {readiness}% exam readiness with {Math.round(totalJourneyMinutes / 60)} hours
+                    mapped across {totalCedSubunits} official CED subunits.
+                  </p>
                 </article>
               </div>
             </section>
@@ -885,13 +899,14 @@ function App() {
 
               <div className="lesson-path-rail">
                 {selectedUnitLessons.map((lesson, index) => {
-                  const lessonMission = getMissionById(lesson.missionId);
+                  const lessonCedSubunits = getLessonCedSubunits(lesson);
                   const complete =
                     lessonCompletion.find((item) => item.lesson.id === lesson.id)
                       ?.complete ?? false;
                   const lessonStops =
-                    3 +
-                    lessonMission.challenges.length +
+                    2 +
+                    lessonCedSubunits.length +
+                    getMissionById(lesson.missionId).challenges.length +
                     getLessonPracticeChallenges(lesson).length;
 
                   return (
@@ -917,9 +932,13 @@ function App() {
 
                         <div className="lesson-stop-row">
                           <span className="mini-stop">Start</span>
-                          <span className="mini-stop">Teach</span>
+                          {lessonCedSubunits.map((subunit) => (
+                            <span className="mini-stop ced" key={`${lesson.id}-${subunit.code}`}>
+                              {subunit.code}
+                            </span>
+                          ))}
                           <span className="mini-stop">
-                            {lessonMission.challenges.length} checkpoints
+                            {getMissionById(lesson.missionId).challenges.length} checkpoints
                           </span>
                           <span className="mini-stop">
                             {getLessonPracticeChallenges(lesson).length} drills
@@ -930,10 +949,18 @@ function App() {
                         <div className="pill-cloud">
                           <span className="pill">{lessonStops} total stops</span>
                           <span className="pill">{lesson.practiceCount} practice pulls</span>
-                          {lessonMission.officialTopics.map((topic) => (
-                            <span className="topic-chip" key={`${lesson.id}-${topic}`}>
-                              Topic {topic}
-                            </span>
+                          <span className="pill accent">
+                            {lessonCedSubunits.length} CED subunits
+                          </span>
+                        </div>
+
+                        <div className="ced-subunit-grid">
+                          {lessonCedSubunits.map((subunit) => (
+                            <article className="ced-subunit-card" key={`${lesson.id}-${subunit.code}`}>
+                              <strong>{subunit.code}</strong>
+                              <h4>{subunit.title}</h4>
+                              <p>{subunit.explanation}</p>
+                            </article>
                           ))}
                         </div>
 
@@ -1007,6 +1034,9 @@ function App() {
                 <div className="pill-cloud">
                   <span className="pill">{selectedLesson.duration}</span>
                   <span className="pill accent">{selectedPracticeSection.title}</span>
+                  <span className="pill">
+                    {selectedLessonCedSubunits.length} CED subunits
+                  </span>
                   <span className="pill">Solved {currentLessonProgress}</span>
                 </div>
 
@@ -1072,7 +1102,7 @@ function App() {
                       {selectedSubstep.kind === 'brief'
                         ? selectedMission.story
                         : selectedSubstep.kind === 'concept'
-                          ? selectedLessonGuide.coachIntro
+                          ? selectedSubstep.subunit?.explanation ?? selectedLessonGuide.coachIntro
                           : selectedSubstep.kind === 'boss'
                             ? selectedMission.bossMove
                             : selectedSubstep.summary}
@@ -1093,6 +1123,16 @@ function App() {
                         drills, then wrap the lesson before moving to the next bubble.
                       </p>
                     </article>
+                    <article className="focus-card">
+                      <h4>Official CED subunits in this lesson</h4>
+                      <div className="topic-chip-row">
+                        {selectedLessonCedSubunits.map((subunit) => (
+                          <span className="topic-chip" key={subunit.code}>
+                            {subunit.code} {subunit.title}
+                          </span>
+                        ))}
+                      </div>
+                    </article>
                     {selectedLesson.teachingMoments.map((moment) => (
                       <article className="focus-card" key={moment}>
                         <h4>Teaching focus</h4>
@@ -1104,6 +1144,14 @@ function App() {
 
                 {selectedSubstep.kind === 'concept' ? (
                   <div className="teaching-stack">
+                    <article className="focus-card ced-topic-card">
+                      <h4>Official CED topic</h4>
+                      <strong>
+                        {selectedSubstep.subunit?.code} {selectedSubstep.subunit?.title}
+                      </strong>
+                      <p>{selectedSubstep.subunit?.explanation ?? selectedSubstep.summary}</p>
+                    </article>
+
                     <article className="focus-card concept-card lesson-master-card">
                       <h4>Coach explanation</h4>
                       <p>{selectedLessonGuide.coachIntro}</p>
@@ -1223,13 +1271,26 @@ function App() {
                         ))}
                       </div>
                     </article>
+
+                    <article className="focus-card">
+                      <h4>CED topics you just covered</h4>
+                      <div className="ced-subunit-grid compact">
+                        {selectedLessonCedSubunits.map((subunit) => (
+                          <article className="ced-subunit-card compact" key={subunit.code}>
+                            <strong>{subunit.code}</strong>
+                            <h4>{subunit.title}</h4>
+                            <p>{subunit.explanation}</p>
+                          </article>
+                        ))}
+                      </div>
+                    </article>
                   </>
                 ) : null}
 
                 <div className="topic-chip-row">
-                  {selectedMission.officialTopics.map((topic) => (
-                    <span className="topic-chip" key={topic}>
-                      Topic {topic}
+                  {selectedLessonCedSubunits.map((subunit) => (
+                    <span className="topic-chip" key={subunit.code}>
+                      {subunit.code} {subunit.title}
                     </span>
                   ))}
                 </div>
