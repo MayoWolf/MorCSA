@@ -641,6 +641,28 @@ input {
   line-height: 1.6;
 }
 
+.teaching-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.lesson-master-card,
+.example-card {
+  display: grid;
+  gap: 12px;
+}
+
+.teaching-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.teaching-list.compact {
+  font-size: 0.95rem;
+}
+
 .concept-card {
   background: linear-gradient(180deg, #ffffff, #f7fdff);
 }
@@ -780,6 +802,12 @@ input {
   color: var(--muted);
 }
 
+.challenge-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .code-snippet {
   overflow-x: auto;
   margin: 14px 0 0;
@@ -790,6 +818,180 @@ input {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.95rem;
   line-height: 1.6;
+}
+
+.ide-shell {
+  overflow: hidden;
+  margin-top: 16px;
+  border-radius: 22px;
+  border: 2px solid #dcebf5;
+  background: #f7fbff;
+}
+
+.ide-topbar,
+.ide-console-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.ide-topbar {
+  padding: 14px 16px;
+  background: #1e3150;
+  color: #eff7ff;
+}
+
+.ide-dots {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.ide-dots span {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.ide-status,
+.ide-console-head span {
+  color: #9fc6e9;
+  font-size: 0.9rem;
+}
+
+.ide-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(220px, 0.8fr);
+  border-top: 2px solid rgba(220, 235, 245, 0.9);
+}
+
+.ide-editor {
+  padding: 16px;
+  background: #132642;
+  color: #eff8ff;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.95rem;
+}
+
+.editor-line {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  min-height: 34px;
+}
+
+.editor-gutter {
+  color: #7ba2c8;
+  text-align: right;
+  user-select: none;
+}
+
+.editor-code {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  white-space: pre-wrap;
+}
+
+.editor-inline-input {
+  min-width: 132px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  border: 1px solid #385a86;
+  background: #f5fbff;
+  color: #183153;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.92rem;
+}
+
+.editor-inline-input.correct {
+  border-color: #90d85e;
+  background: #eefae4;
+}
+
+.editor-inline-input.incorrect {
+  border-color: #ffacae;
+  background: #fff0f0;
+}
+
+.ide-sidepanel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.ide-sidepanel p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.ide-console {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: #0f2038;
+  color: #eff7ff;
+  border-top: 2px solid rgba(220, 235, 245, 0.15);
+}
+
+.test-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.test-row {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.test-row strong {
+  font-size: 0.85rem;
+}
+
+.test-row.pass strong {
+  color: #8de070;
+}
+
+.test-row.fail strong {
+  color: #ff9f93;
+}
+
+.test-row span {
+  display: block;
+  font-weight: 900;
+}
+
+.test-row p,
+.console-preview p {
+  margin: 4px 0 0;
+  color: #bcd7ee;
+  line-height: 1.5;
+}
+
+.console-preview {
+  display: grid;
+  gap: 12px;
+}
+
+.console-code {
+  margin: 0;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #eff7ff;
+  font-family: 'IBM Plex Mono', monospace;
+  white-space: pre-wrap;
 }
 
 .blank-grid {
@@ -934,7 +1136,8 @@ input {
   .option-grid,
   .blank-grid,
   .frq-grid,
-  .focus-grid {
+  .focus-grid,
+  .ide-body {
     grid-template-columns: 1fr;
   }
 

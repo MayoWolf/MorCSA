@@ -13,6 +13,7 @@ import {
   sectionPracticeDecks,
   type PracticeChallenge,
 } from './data/practiceDecks';
+import { lessonGuides } from './data/lessonGuides';
 
 type QuizSelections = Record<string, string>;
 type QuizSubmissions = Record<string, boolean>;
@@ -183,6 +184,25 @@ function getDefaultMissionSubstepId(
   return `${mission.id}-boss`;
 }
 
+function buildCodePreview(
+  challenge: FillChallenge,
+  values: Record<string, string>,
+) {
+  return challenge.snippet
+    .map((line) =>
+      challenge.blanks.reduce((current, blank) => {
+        const filled = values[blank.id]?.trim();
+        return current.replace(`__${blank.id}__`, filled && filled.length > 0 ? filled : '____');
+      }, line),
+    )
+    .join('\n');
+}
+
+function getEditorFileName(challengeId: string) {
+  const missionNumber = challengeId.match(/^m(\d+)/)?.[1] ?? 'Practice';
+  return `Mission${missionNumber}.java`;
+}
+
 function App() {
   const practicePageSize = 5;
   const storedProgress = readStoredProgress();
@@ -238,6 +258,7 @@ function App() {
     selectedSubstep.kind === 'fill' && selectedSubstep.challenge?.type === 'fill'
       ? selectedSubstep.challenge
       : undefined;
+  const selectedLessonGuide = lessonGuides[selectedMission.id];
   const selectedPracticeSection =
     sectionPracticeDecks.find((section) => section.unit === selectedMission.unit) ??
     sectionPracticeDecks[sectionPracticeDecks.length - 1];
@@ -674,10 +695,47 @@ function App() {
                 ) : null}
 
                 {selectedSubstep.kind === 'concept' ? (
-                  <article className="focus-card concept-card">
-                    <h4>Core explanation</h4>
-                    <p>{selectedMission.lesson}</p>
-                  </article>
+                  <div className="teaching-stack">
+                    <article className="focus-card concept-card lesson-master-card">
+                      <h4>Coach explanation</h4>
+                      <p>{selectedLessonGuide.coachIntro}</p>
+                      <p>{selectedMission.lesson}</p>
+                    </article>
+
+                    <div className="focus-grid">
+                      <article className="focus-card">
+                        <h4>Mental model</h4>
+                        <p>{selectedLessonGuide.mentalModel}</p>
+                      </article>
+                      <article className="focus-card">
+                        <h4>Common trap</h4>
+                        <p>{selectedLessonGuide.commonMistake}</p>
+                      </article>
+                    </div>
+
+                    <article className="focus-card example-card">
+                      <h4>{selectedLessonGuide.workedExample.title}</h4>
+                      <pre className="code-snippet">
+                        <code>{selectedLessonGuide.workedExample.code.join('\n')}</code>
+                      </pre>
+                      <p>{selectedLessonGuide.workedExample.walkthrough}</p>
+                    </article>
+
+                    <div className="focus-grid">
+                      <article className="focus-card">
+                        <h4>Debug rule</h4>
+                        <p>{selectedLessonGuide.debugRule}</p>
+                      </article>
+                      <article className="focus-card">
+                        <h4>Before you move on</h4>
+                        <ul className="teaching-list">
+                          {selectedLessonGuide.checklist.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </article>
+                    </div>
+                  </div>
                 ) : null}
 
                 {selectedSubstep.kind === 'boss' ? (
@@ -949,33 +1007,167 @@ function FillCard({
   onSubmit,
 }: FillCardProps) {
   const isCorrect = isFillBlankCorrect(challenge, values);
+  const [testsRun, setTestsRun] = useState(false);
+  const blankChecks = challenge.blanks.map((blank) => {
+    const value = values[blank.id] ?? '';
+    const accepted = [blank.answer, ...(blank.alternates ?? [])];
+    const filled = value.trim().length > 0;
+    const correct = accepted.some(
+      (candidate) =>
+        normalizeCompact(candidate) === normalizeCompact(value) ||
+        normalize(candidate) === normalize(value),
+    );
+
+    return {
+      blank,
+      filled,
+      correct,
+    };
+  });
+  const editorPreview = buildCodePreview(challenge, values);
+  const editorTests = [
+    {
+      id: 'filled',
+      label: 'All blanks filled',
+      pass: blankChecks.every((check) => check.filled),
+      detail: blankChecks.every((check) => check.filled)
+        ? 'The file compiles far enough for every placeholder to be tested.'
+        : 'At least one placeholder is still empty, so the file is incomplete.',
+    },
+    ...blankChecks.map((check) => ({
+      id: check.blank.id,
+      label: check.blank.label,
+      pass: check.correct,
+      detail: check.correct
+        ? 'This line now matches the expected Java idea.'
+        : 'This slot still does not match the required Java syntax or method choice.',
+    })),
+    {
+      id: 'behavior',
+      label: 'Expected behavior',
+      pass: isCorrect,
+      detail: isCorrect
+        ? challenge.explanation
+        : 'The program behavior still misses the target. Use the failed slot checks to narrow down the bug.',
+    },
+  ];
+
+  useEffect(() => {
+    setTestsRun(false);
+  }, [challenge.id]);
 
   return (
     <article className="challenge-card code-card">
       <div className="challenge-topline">
-        <span className="tiny-badge alt">Code puzzle</span>
+        <span className="tiny-badge alt">IDE mission</span>
       </div>
       <h3>{challenge.prompt}</h3>
-      <pre className="code-snippet">
-        <code>{challenge.snippet.join('\n')}</code>
-      </pre>
-      <div className="blank-grid">
-        {challenge.blanks.map((blank) => (
-          <label className="blank-field" key={blank.id}>
-            <span>{blank.label}</span>
-            <input
-              onChange={(event) => onChange(blank.id, event.target.value)}
-              placeholder={`Fill ${blank.id}`}
-              type="text"
-              value={values[blank.id] ?? ''}
-            />
-          </label>
-        ))}
+      <div className="ide-shell">
+        <div className="ide-topbar">
+          <div className="ide-dots">
+            <span />
+            <span />
+            <span />
+          </div>
+          <strong>{getEditorFileName(challenge.id)}</strong>
+          <span className="ide-status">{testsRun ? 'tests loaded' : 'ready to run'}</span>
+        </div>
+
+        <div className="ide-body">
+          <div className="ide-editor">
+            {challenge.snippet.map((line, index) => (
+              <div className="editor-line" key={`${challenge.id}-${index}`}>
+                <span className="editor-gutter">{index + 1}</span>
+                <div className="editor-code">
+                  {line.split(/(__[a-zA-Z0-9-]+__)/g).map((part, partIndex) => {
+                    const match = part.match(/^__(.+)__$/);
+                    if (!match) {
+                      return (
+                        <span key={`${challenge.id}-${index}-${partIndex}`}>
+                          {part}
+                        </span>
+                      );
+                    }
+
+                    const blank = challenge.blanks.find((item) => item.id === match[1]);
+                    if (!blank) {
+                      return null;
+                    }
+
+                    return (
+                      <input
+                        className={`editor-inline-input ${
+                          submitted
+                            ? blankChecks.find((check) => check.blank.id === blank.id)?.correct
+                              ? 'correct'
+                              : 'incorrect'
+                            : ''
+                        }`}
+                        key={`${challenge.id}-${blank.id}`}
+                        onChange={(event) => onChange(blank.id, event.target.value)}
+                        placeholder={blank.label}
+                        spellCheck={false}
+                        type="text"
+                        value={values[blank.id] ?? ''}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <aside className="ide-sidepanel">
+            <strong>What this code is testing</strong>
+            <ul className="teaching-list compact">
+              {challenge.blanks.map((blank) => (
+                <li key={blank.id}>{blank.label}</li>
+              ))}
+            </ul>
+            <p>{challenge.explanation}</p>
+          </aside>
+        </div>
+
+        <div className="ide-console">
+          <div className="ide-console-head">
+            <strong>Test console</strong>
+            <span>{editorTests.filter((test) => test.pass).length}/{editorTests.length} checks green</span>
+          </div>
+          {testsRun ? (
+            <div className="test-stack">
+              {editorTests.map((test) => (
+                <div className={`test-row ${test.pass ? 'pass' : 'fail'}`} key={test.id}>
+                  <strong>{test.pass ? 'PASS' : 'FAIL'}</strong>
+                  <div>
+                    <span>{test.label}</span>
+                    <p>{test.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="console-preview">
+              <pre className="console-code">
+                <code>{editorPreview}</code>
+              </pre>
+              <p>Press Run tests to compile this practice file and check each blank like a mini IDE challenge.</p>
+            </div>
+          )}
+        </div>
       </div>
       <div className="challenge-actions">
-        <button className="primary-button" onClick={onSubmit} type="button">
-          Check code
-        </button>
+        <div className="challenge-button-row">
+          <button
+            className="secondary-button"
+            onClick={() => setTestsRun(true)}
+            type="button"
+          >
+            Run tests
+          </button>
+          <button className="primary-button" onClick={onSubmit} type="button">
+            Check code
+          </button>
+        </div>
         {submitted ? (
           <p className={`feedback ${isCorrect ? 'good' : 'needs-work'}`}>
             {isCorrect ? 'Nice work.' : 'Close, but fix the syntax.'}{' '}
@@ -983,7 +1175,7 @@ function FillCard({
           </p>
         ) : (
           <p className="feedback muted">
-            Fill it like exam paper code, then lock it in.
+            Use the coach panel, run the tests, then lock the code in when the checks look good.
           </p>
         )}
       </div>
