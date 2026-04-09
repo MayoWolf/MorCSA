@@ -378,7 +378,8 @@ input {
 
 .path-section,
 .lesson-card,
-.side-card {
+.side-card,
+.practice-card {
   padding: 24px;
 }
 
@@ -414,6 +415,11 @@ input {
   margin-left: -4px;
   border-radius: 999px;
   background: linear-gradient(180deg, #d1f1c8, #8bd64a);
+}
+
+.path-node {
+  display: grid;
+  gap: 10px;
 }
 
 .path-step {
@@ -504,6 +510,85 @@ input {
   border: 2px solid #d4ebc7;
 }
 
+.subpath-cluster {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0 18px 0 108px;
+}
+
+.subpath-cluster::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 42px;
+  width: 66px;
+  height: 2px;
+  background: #cfe6bf;
+}
+
+.subpath-bubble,
+.substep-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 2px solid #dbe7ef;
+  background: #ffffff;
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 900;
+  box-shadow: 0 6px 16px rgba(24, 49, 83, 0.08);
+}
+
+.subpath-bubble span,
+.substep-chip span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #eef7ff;
+  color: #2a5b82;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+}
+
+.subpath-bubble.complete,
+.substep-chip.complete {
+  border-color: #bde5a0;
+  background: #f4fde9;
+}
+
+.subpath-bubble.complete span,
+.substep-chip.complete span {
+  background: #dff3c8;
+  color: #2f7d25;
+}
+
+.subpath-bubble.active,
+.substep-chip.active {
+  border-color: #ffd270;
+  background: #fff7df;
+  transform: translateY(-1px);
+}
+
+.subpath-bubble.active span,
+.substep-chip.active span {
+  background: #ffe5a0;
+  color: #9c6100;
+}
+
+.subpath-bubble.boss span {
+  background: #f0ebff;
+  color: #5e43db;
+}
+
 .lesson-card {
   position: sticky;
   top: 98px;
@@ -511,36 +596,57 @@ input {
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(243, 251, 255, 0.96));
 }
 
-.lesson-callout,
-.lesson-duo-grid article {
+.lesson-focus h3,
+.challenge-card h3,
+.focus-card h4 {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+}
+
+.substep-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.lesson-focus {
+  display: grid;
+  gap: 16px;
+}
+
+.lesson-focus-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.focus-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.focus-card {
   padding: 18px;
   border-radius: 22px;
   border: 2px solid #dcebf5;
   background: #ffffff;
 }
 
-.lesson-callout {
-  margin: 18px 0;
+.focus-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
-.lesson-callout h3,
-.lesson-duo-grid h3,
-.challenge-card h3 {
-  margin: 0 0 10px;
-  font-size: 1.1rem;
+.concept-card {
+  background: linear-gradient(180deg, #ffffff, #f7fdff);
 }
 
-.lesson-duo-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.challenge-stack {
-  display: grid;
-  gap: 16px;
-  margin-top: 18px;
+.boss-card {
+  background: linear-gradient(180deg, #fffaf0, #ffffff);
 }
 
 .challenge-card {
@@ -626,10 +732,35 @@ input {
   box-shadow: 0 8px 0 rgba(63, 151, 33, 0.35);
 }
 
+.secondary-button {
+  width: fit-content;
+  padding: 12px 18px;
+  border-radius: 999px;
+  border: 2px solid #d7e7f4;
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 6px 0 rgba(24, 49, 83, 0.08);
+}
+
 .primary-button:hover,
 .primary-button:focus-visible {
   transform: translateY(1px);
   box-shadow: 0 7px 0 rgba(63, 151, 33, 0.35);
+}
+
+.secondary-button:hover,
+.secondary-button:focus-visible {
+  transform: translateY(1px);
+  box-shadow: 0 5px 0 rgba(24, 49, 83, 0.08);
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+  box-shadow: 0 6px 0 rgba(24, 49, 83, 0.04);
 }
 
 .feedback {
@@ -685,6 +816,50 @@ input {
   background: linear-gradient(180deg, #ffffff, #f8fcff);
 }
 
+.practice-card {
+  display: grid;
+  gap: 18px;
+  background: linear-gradient(180deg, #ffffff, #f6fbff);
+}
+
+.practice-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+
+.practice-stat-block {
+  min-width: 180px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  border: 2px solid #dcebf5;
+  background: #ffffff;
+}
+
+.practice-stat-block strong {
+  display: block;
+  font-size: 1.45rem;
+}
+
+.practice-stat-block p,
+.practice-note {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.practice-controls,
+.practice-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.practice-controls {
+  grid-template-columns: repeat(4, max-content);
+  align-items: center;
+}
+
 .frq-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 18px;
@@ -738,14 +913,16 @@ input {
   .path-section,
   .lesson-card,
   .side-card,
-  .summary-card {
+  .summary-card,
+  .practice-card {
     padding: 18px;
     border-radius: 24px;
   }
 
   .hud-bar,
   .path-section-head,
-  .lesson-header {
+  .lesson-header,
+  .practice-card-head {
     flex-direction: column;
     align-items: stretch;
   }
@@ -757,8 +934,12 @@ input {
   .option-grid,
   .blank-grid,
   .frq-grid,
-  .lesson-duo-grid {
+  .focus-grid {
     grid-template-columns: 1fr;
+  }
+
+  .practice-controls {
+    grid-template-columns: 1fr 1fr;
   }
 
   .path-step.left,
@@ -779,5 +960,14 @@ input {
 
   .path-step {
     grid-template-columns: 84px minmax(0, 1fr);
+  }
+
+  .subpath-cluster {
+    padding-left: 84px;
+  }
+
+  .subpath-cluster::before {
+    left: 42px;
+    width: 38px;
   }
 }

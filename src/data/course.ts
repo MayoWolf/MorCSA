@@ -217,6 +217,20 @@ export const missions: Mission[] = [
           'The int is promoted to a double during addition, so the result is the decimal value 6.5.',
       },
       {
+        id: 'm1-q3',
+        type: 'quiz',
+        prompt: 'What is printed by `int a = 9; int b = 2; System.out.println(a / b);`?',
+        options: [
+          { id: 'a', text: '4' },
+          { id: 'b', text: '4.5' },
+          { id: 'c', text: '5' },
+          { id: 'd', text: '9/2' },
+        ],
+        answer: 'a',
+        explanation:
+          'When both operands are ints, Java uses integer division and drops the decimal part.',
+      },
+      {
         id: 'm1-fill',
         type: 'fill',
         prompt: 'Complete the code so it stores a score and prints it with a label.',
@@ -234,6 +248,21 @@ export const missions: Mission[] = [
         ],
         explanation:
           'The first blank initializes the variable, and the second blank should reference the variable name so the output updates from storage rather than a hard-coded copy.',
+      },
+      {
+        id: 'm1-fill-2',
+        type: 'fill',
+        prompt: 'Complete the variable setup so the output shows a boolean state.',
+        snippet: [
+          'boolean isReady = __state__;',
+          'System.out.println("Ready? " + __name__);',
+        ],
+        blanks: [
+          { id: 'state', label: 'boolean literal', answer: 'true' },
+          { id: 'name', label: 'variable being printed', answer: 'isReady' },
+        ],
+        explanation:
+          'This mirrors common APCSA tracing questions: choose the correct literal type, then print the stored variable rather than retyping the value.',
       },
     ],
   },
@@ -284,6 +313,20 @@ export const missions: Mission[] = [
           'Casting a positive double to int truncates the decimal part instead of rounding.',
       },
       {
+        id: 'm2-q3',
+        type: 'quiz',
+        prompt: 'What does `String word = "coding"; System.out.println(word.substring(1, 4));` print?',
+        options: [
+          { id: 'a', text: 'cod' },
+          { id: 'b', text: 'odi' },
+          { id: 'c', text: 'odin' },
+          { id: 'd', text: 'ing' },
+        ],
+        answer: 'b',
+        explanation:
+          'The substring starts at index 1 and stops before index 4, so it includes positions 1, 2, and 3.',
+      },
+      {
         id: 'm2-fill',
         type: 'fill',
         prompt: 'Use String and Math methods to complete the mini utility.',
@@ -306,6 +349,21 @@ export const missions: Mission[] = [
         ],
         explanation:
           '`substring(0, 1)` captures the first character. Multiplying `Math.random()` by 10 gives integer results from 0 through 9 after casting.',
+      },
+      {
+        id: 'm2-fill-2',
+        type: 'fill',
+        prompt: 'Use the Java Quick Reference ideas to finish the helper method.',
+        snippet: [
+          'String middle = code.__cut__(2, 5);',
+          'int gap = Math.__tool__(target - current);',
+        ],
+        blanks: [
+          { id: 'cut', label: 'String slicing method', answer: 'substring' },
+          { id: 'tool', label: 'Math method for distance', answer: 'abs' },
+        ],
+        explanation:
+          'Strong APCSA students know a few methods cold: `substring` for slices and `Math.abs` for distance or difference questions.',
       },
     ],
   },
@@ -356,6 +414,20 @@ export const missions: Mission[] = [
           '`substring(2)` starts at index 2 and continues to the end, producing `"va"`.',
       },
       {
+        id: 'm3-q3',
+        type: 'quiz',
+        prompt: 'In `Scanner scan = new Scanner(System.in);`, what is `scan`?',
+        options: [
+          { id: 'a', text: 'A class name' },
+          { id: 'b', text: 'A reference variable to a Scanner object' },
+          { id: 'c', text: 'A constructor parameter' },
+          { id: 'd', text: 'A primitive value' },
+        ],
+        answer: 'b',
+        explanation:
+          'The variable stores a reference to the created object, which is exactly the distinction APCSA checks in object questions.',
+      },
+      {
         id: 'm3-fill',
         type: 'fill',
         prompt: 'Instantiate the object and call its method.',
@@ -369,6 +441,20 @@ export const missions: Mission[] = [
         ],
         explanation:
           'A constructor call needs `new`, and `nextLine()` reads a full line from the Scanner.',
+      },
+      {
+        id: 'm3-fill-2',
+        type: 'fill',
+        prompt: 'Complete the object call that measures the String object.',
+        snippet: [
+          'String badge = new String("quest");',
+          'int letters = badge.__method__();',
+        ],
+        blanks: [
+          { id: 'method', label: 'instance method name', answer: 'length' },
+        ],
+        explanation:
+          'This is object thinking in one line: create an instance, store it in a variable, then call an instance method on that object.',
       },
     ],
   },
@@ -419,6 +505,20 @@ export const missions: Mission[] = [
           'Not less than 5 means greater than or equal to 5.',
       },
       {
+        id: 'm4-q3',
+        type: 'quiz',
+        prompt: 'What is printed when `int temp = 72; if (temp > 80) System.out.println("hot"); else System.out.println("ok");` executes?',
+        options: [
+          { id: 'a', text: 'hot' },
+          { id: 'b', text: 'ok' },
+          { id: 'c', text: '72' },
+          { id: 'd', text: 'Nothing prints' },
+        ],
+        answer: 'b',
+        explanation:
+          'Because `72 > 80` is false, control moves to the `else` branch and prints `ok`.',
+      },
+      {
         id: 'm4-fill',
         type: 'fill',
         prompt: 'Complete the conditional so the scholarship badge is awarded for scores 90 or higher.',
@@ -433,6 +533,22 @@ export const missions: Mission[] = [
         ],
         explanation:
           'Using `>=` includes exactly 90, which matters often in APCSA boundary questions.',
+      },
+      {
+        id: 'm4-fill-2',
+        type: 'fill',
+        prompt: 'Finish the compound condition so both requirements must be true.',
+        snippet: [
+          'if (level >= 5 __join__ hasKey) {',
+          '  gateOpen = __result__;',
+          '}',
+        ],
+        blanks: [
+          { id: 'join', label: 'boolean operator', answer: '&&' },
+          { id: 'result', label: 'boolean value', answer: 'true' },
+        ],
+        explanation:
+          'This matches the selection-and-iteration emphasis in the CED: combine conditions carefully and pay attention to whether both or either must be true.',
       },
     ],
   },
@@ -483,6 +599,20 @@ export const missions: Mission[] = [
           'A `for` loop is especially clear when repetition is controlled by a counter variable.',
       },
       {
+        id: 'm5-q3',
+        type: 'quiz',
+        prompt: 'How many times does the inner statement run? `for (int r = 0; r < 3; r++) { for (int c = 0; c < 2; c++) { work(); } }`',
+        options: [
+          { id: 'a', text: '3' },
+          { id: 'b', text: '5' },
+          { id: 'c', text: '6' },
+          { id: 'd', text: '8' },
+        ],
+        answer: 'c',
+        explanation:
+          'The outer loop runs 3 times and the inner loop runs 2 times per outer pass, for 3 × 2 total executions.',
+      },
+      {
         id: 'm5-fill',
         type: 'fill',
         prompt: 'Repair the traversal so it prints indexes 0 through 4.',
@@ -497,6 +627,23 @@ export const missions: Mission[] = [
         ],
         explanation:
           'Stopping at `i < 5` keeps the last printed index at 4, and incrementing by one visits every position.',
+      },
+      {
+        id: 'm5-fill-2',
+        type: 'fill',
+        prompt: 'Prevent the while loop from getting stuck by updating the counter.',
+        snippet: [
+          'int count = 0;',
+          'while (count < 3) {',
+          '  System.out.println(count);',
+          '  count__shift__;',
+          '}',
+        ],
+        blanks: [
+          { id: 'shift', label: 'update to advance the loop', answer: '++', alternates: [' += 1'] },
+        ],
+        explanation:
+          'Barron-style troubleshooting questions often hide the update. If the counter never changes, the loop condition never changes either.',
       },
     ],
   },
@@ -547,6 +694,20 @@ export const missions: Mission[] = [
           'The left side refers to the field on the object, while the right side is the parameter.',
       },
       {
+        id: 'm6-q3',
+        type: 'quiz',
+        prompt: 'Which method is most likely an accessor method in a class?',
+        options: [
+          { id: 'a', text: 'public void addPoints(int amt)' },
+          { id: 'b', text: 'public int getScore()' },
+          { id: 'c', text: 'public void reset()' },
+          { id: 'd', text: 'public void setName(String n)' },
+        ],
+        answer: 'b',
+        explanation:
+          'An accessor reports object state without changing it, and `getScore` matches that pattern.',
+      },
+      {
         id: 'm6-fill',
         type: 'fill',
         prompt: 'Complete the constructor so the object stores its energy.',
@@ -560,6 +721,21 @@ export const missions: Mission[] = [
         ],
         explanation:
           '`this` refers to the current object and is the clearest way to disambiguate a field from a parameter with the same name.',
+      },
+      {
+        id: 'm6-fill-2',
+        type: 'fill',
+        prompt: 'Finish the accessor so it returns the stored field.',
+        snippet: [
+          'public int getEnergy() {',
+          '  return __field__;',
+          '}',
+        ],
+        blanks: [
+          { id: 'field', label: 'instance variable name', answer: 'energy' },
+        ],
+        explanation:
+          'FRQ 2 often awards easy points for clean accessors that simply return the correct field with the right type.',
       },
     ],
   },
@@ -610,6 +786,20 @@ export const missions: Mission[] = [
           'Starting at 0 and continuing while `i < nums.length` visits each valid index exactly once.',
       },
       {
+        id: 'm7-q3',
+        type: 'quiz',
+        prompt: 'If `int[] vals = {3, 1, 4}; int sum = 0; for (int n : vals) { sum += n; }`, what is `sum` afterward?',
+        options: [
+          { id: 'a', text: '3' },
+          { id: 'b', text: '4' },
+          { id: 'c', text: '7' },
+          { id: 'd', text: '8' },
+        ],
+        answer: 'd',
+        explanation:
+          'Enhanced for loops visit each value in the array, so the running total becomes 3 + 1 + 4.',
+      },
+      {
         id: 'm7-fill',
         type: 'fill',
         prompt: 'Complete the traversal that sums every element in the array.',
@@ -625,6 +815,25 @@ export const missions: Mission[] = [
         ],
         explanation:
           'Arrays use the `length` field, not a method call, and the traversal uses the loop variable to access each element.',
+      },
+      {
+        id: 'm7-fill-2',
+        type: 'fill',
+        prompt: 'Complete the search loop so it counts matches to the target value.',
+        snippet: [
+          'int matches = 0;',
+          'for (int i = 0; i < nums.length; i++) {',
+          '  if (nums[i] == __goal__) {',
+          '    matches__grow__;',
+          '  }',
+          '}',
+        ],
+        blanks: [
+          { id: 'goal', label: 'value being counted', answer: 'target' },
+          { id: 'grow', label: 'update for the counter', answer: '++', alternates: [' += 1'] },
+        ],
+        explanation:
+          'This is a classic array algorithm from both study guides and the CED: traverse, test the current element, then update a tracker.',
       },
     ],
   },
@@ -675,6 +884,20 @@ export const missions: Mission[] = [
           '`set` updates an existing position instead of inserting a new one.',
       },
       {
+        id: 'm8-q3',
+        type: 'quiz',
+        prompt: 'Why must removal loops over an `ArrayList` be written carefully?',
+        options: [
+          { id: 'a', text: 'Because removed elements turn into `null` but stay in place' },
+          { id: 'b', text: 'Because all elements become Strings' },
+          { id: 'c', text: 'Because later elements shift left after a removal' },
+          { id: 'd', text: 'Because `size()` stops working after `remove`' },
+        ],
+        answer: 'c',
+        explanation:
+          'The study guide emphasis is correct here: after removing one element, every later index moves down by one.',
+      },
+      {
         id: 'm8-fill',
         type: 'fill',
         prompt: 'Complete the ArrayList traversal that counts available items.',
@@ -692,6 +915,22 @@ export const missions: Mission[] = [
         ],
         explanation:
           'For APCSA ArrayLists, `size()` controls the loop and `get(i)` reads the current element.',
+      },
+      {
+        id: 'm8-fill-2',
+        type: 'fill',
+        prompt: 'Complete the update so the list entry at index 1 is replaced.',
+        snippet: [
+          'ArrayList<String> prizes = new ArrayList<String>();',
+          'prizes.add("coin");',
+          'prizes.add("key");',
+          'prizes.__swap__(1, "gem");',
+        ],
+        blanks: [
+          { id: 'swap', label: 'ArrayList replacement method', answer: 'set' },
+        ],
+        explanation:
+          'Princeton and the study guide both emphasize the distinction between adding a new element and replacing one already stored at an index.',
       },
     ],
   },
@@ -742,6 +981,20 @@ export const missions: Mission[] = [
           'The outer array length is the row count. For columns in the current row, use `grid[row].length`.',
       },
       {
+        id: 'm9-q3',
+        type: 'quiz',
+        prompt: 'If `int[][] grid = {{1, 2}, {3, 4}};`, what does a standard row-major traversal print first?',
+        options: [
+          { id: 'a', text: '4' },
+          { id: 'b', text: '2' },
+          { id: 'c', text: '1' },
+          { id: 'd', text: '3' },
+        ],
+        answer: 'c',
+        explanation:
+          'Row-major order begins with row 0, column 0, which is the upper-left element.',
+      },
+      {
         id: 'm9-fill',
         type: 'fill',
         prompt: 'Complete the nested traversal that adds every element in a 2D array.',
@@ -758,6 +1011,23 @@ export const missions: Mission[] = [
         ],
         explanation:
           'The inner loop must change the column variable, and the second index should use that same column tracker.',
+      },
+      {
+        id: 'm9-fill-2',
+        type: 'fill',
+        prompt: 'Complete the row scan that counts values greater than zero in one row.',
+        snippet: [
+          'for (int col = 0; col < board[row].length; col++) {',
+          '  if (board[row][col] __check__ 0) {',
+          '    positives++;',
+          '  }',
+          '}',
+        ],
+        blanks: [
+          { id: 'check', label: 'comparison operator', answer: '>' },
+        ],
+        explanation:
+          'This mirrors many 2D array drills from the review books: stay on one row, use the row variable consistently, then test each column value.',
       },
     ],
   },
@@ -808,6 +1078,20 @@ export const missions: Mission[] = [
           'Without a base case, recursion keeps calling itself and never reaches a stopping point.',
       },
       {
+        id: 'm10-q3',
+        type: 'quiz',
+        prompt: 'When is binary search an appropriate algorithm choice on the APCSA exam?',
+        options: [
+          { id: 'a', text: 'Any time you have an unsorted list' },
+          { id: 'b', text: 'Only when the data is already sorted' },
+          { id: 'c', text: 'Only for 2D arrays' },
+          { id: 'd', text: 'Only inside constructors' },
+        ],
+        answer: 'b',
+        explanation:
+          'Barron-style algorithm questions often hinge on this condition: binary search depends on sorted order.',
+      },
+      {
         id: 'm10-fill',
         type: 'fill',
         prompt: 'Complete the recursive method so it stops cleanly and keeps reducing the problem size.',
@@ -825,6 +1109,25 @@ export const missions: Mission[] = [
         ],
         explanation:
           'A correct recursive solution needs a stopping value and a recursive call that moves toward that stop.',
+      },
+      {
+        id: 'm10-fill-2',
+        type: 'fill',
+        prompt: 'Complete the linear search so it returns true when the target is found.',
+        snippet: [
+          'for (int i = 0; i < nums.length; i++) {',
+          '  if (nums[i] == target) {',
+          '    return __found__;',
+          '  }',
+          '}',
+          'return __miss__;',
+        ],
+        blanks: [
+          { id: 'found', label: 'return value when present', answer: 'true' },
+          { id: 'miss', label: 'return value when absent', answer: 'false' },
+        ],
+        explanation:
+          'Final-review practice should include fast, correct search patterns. This one is a common warm-up before harder sort or recursion questions.',
       },
     ],
   },

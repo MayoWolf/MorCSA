@@ -9,11 +9,16 @@ import {
   type Mission,
   type QuizChallenge,
 } from './data/course';
+import {
+  sectionPracticeDecks,
+  type PracticeChallenge,
+} from './data/practiceDecks';
 
 type QuizSelections = Record<string, string>;
 type QuizSubmissions = Record<string, boolean>;
 type FillInputs = Record<string, Record<string, string>>;
 type FillSubmissions = Record<string, boolean>;
+type MissionSubstepKind = 'brief' | 'concept' | 'boss' | 'quiz' | 'fill';
 
 const storageKey = 'morcsa-progress-v1';
 
@@ -22,6 +27,16 @@ type StoredProgress = {
   quizSubmissions: QuizSubmissions;
   fillInputs: FillInputs;
   fillSubmissions: FillSubmissions;
+};
+
+type MissionSubstep = {
+  id: string;
+  kind: MissionSubstepKind;
+  bubbleLabel: string;
+  title: string;
+  summary: string;
+  done: boolean;
+  challenge?: Mission['challenges'][number];
 };
 
 function normalize(value: string) {
@@ -87,7 +102,7 @@ function isFillBlankCorrect(
 }
 
 function isChallengeCorrect(
-  challenge: Mission['challenges'][number],
+  challenge: PracticeChallenge,
   quizSelections: QuizSelections,
   fillInputs: FillInputs,
 ) {
@@ -108,9 +123,77 @@ function isMissionComplete(
   );
 }
 
+function buildMissionSubsteps(
+  mission: Mission,
+  quizSelections: QuizSelections,
+  fillInputs: FillInputs,
+): MissionSubstep[] {
+  const challengeSteps = mission.challenges.map((challenge, index) => ({
+    id: challenge.id,
+    kind: challenge.type,
+    bubbleLabel: challenge.type === 'quiz' ? `Q${index + 1}` : 'Code',
+    title: challenge.prompt,
+    summary: challenge.explanation,
+    done: isChallengeCorrect(challenge, quizSelections, fillInputs),
+    challenge,
+  })) satisfies MissionSubstep[];
+
+  return [
+    {
+      id: `${mission.id}-brief`,
+      kind: 'brief',
+      bubbleLabel: 'Start',
+      title: 'Mission Brief',
+      summary: mission.story,
+      done: false,
+    },
+    {
+      id: `${mission.id}-concept`,
+      kind: 'concept',
+      bubbleLabel: 'Learn',
+      title: 'Core Idea',
+      summary: mission.lesson,
+      done: false,
+    },
+    ...challengeSteps,
+    {
+      id: `${mission.id}-boss`,
+      kind: 'boss',
+      bubbleLabel: 'Boss',
+      title: 'Boss Move',
+      summary: mission.bossMove,
+      done: isMissionComplete(mission, quizSelections, fillInputs),
+    },
+  ];
+}
+
+function getDefaultMissionSubstepId(
+  mission: Mission,
+  quizSelections: QuizSelections,
+  fillInputs: FillInputs,
+) {
+  const firstIncompleteChallenge = mission.challenges.find(
+    (challenge) => !isChallengeCorrect(challenge, quizSelections, fillInputs),
+  );
+
+  if (firstIncompleteChallenge) {
+    return firstIncompleteChallenge.id;
+  }
+
+  return `${mission.id}-boss`;
+}
+
 function App() {
+  const practicePageSize = 5;
   const storedProgress = readStoredProgress();
   const [selectedMissionId, setSelectedMissionId] = useState(missions[0].id);
+  const [selectedSubstepId, setSelectedSubstepId] = useState(() =>
+    getDefaultMissionSubstepId(
+      missions[0],
+      storedProgress.quizSelections,
+      storedProgress.fillInputs,
+    ),
+  );
   const [quizSelections, setQuizSelections] = useState<QuizSelections>(
     storedProgress.quizSelections,
   );
@@ -123,6 +206,7 @@ function App() {
   const [fillSubmissions, setFillSubmissions] = useState<FillSubmissions>(
     storedProgress.fillSubmissions,
   );
+  const [practicePage, setPracticePage] = useState(0);
 
   const missionStates = useMemo(
     () =>
@@ -139,12 +223,43 @@ function App() {
   const selectedMissionIndex = missions.findIndex(
     (mission) => mission.id === selectedMission.id,
   );
+  const selectedMissionSubsteps = useMemo(
+    () => buildMissionSubsteps(selectedMission, quizSelections, fillInputs),
+    [fillInputs, quizSelections, selectedMission],
+  );
+  const selectedSubstep =
+    selectedMissionSubsteps.find((step) => step.id === selectedSubstepId) ??
+    selectedMissionSubsteps[0];
+  const activeQuizChallenge =
+    selectedSubstep.kind === 'quiz' && selectedSubstep.challenge?.type === 'quiz'
+      ? selectedSubstep.challenge
+      : undefined;
+  const activeFillChallenge =
+    selectedSubstep.kind === 'fill' && selectedSubstep.challenge?.type === 'fill'
+      ? selectedSubstep.challenge
+      : undefined;
+  const selectedPracticeSection =
+    sectionPracticeDecks.find((section) => section.unit === selectedMission.unit) ??
+    sectionPracticeDecks[sectionPracticeDecks.length - 1];
+  const practicePageCount = Math.ceil(
+    selectedPracticeSection.challenges.length / practicePageSize,
+  );
+  const practiceStart = practicePage * practicePageSize;
+  const visiblePracticeChallenges = selectedPracticeSection.challenges.slice(
+    practiceStart,
+    practiceStart + practicePageSize,
+  );
 
   const scoredChallengeIds = useMemo(
     () =>
-      missions.flatMap((mission) =>
-        mission.challenges.map((challenge) => challenge.id),
-      ),
+      [
+        ...missions.flatMap((mission) =>
+          mission.challenges.map((challenge) => challenge.id),
+        ),
+        ...sectionPracticeDecks.flatMap((section) =>
+          section.challenges.map((challenge) => challenge.id),
+        ),
+      ],
     [],
   );
 
@@ -156,14 +271,23 @@ function App() {
     0,
   );
 
-  const correctCount = missions.reduce((sum, mission) => {
-    return (
-      sum +
-      mission.challenges.filter((challenge) =>
-        isChallengeCorrect(challenge, quizSelections, fillInputs),
-      ).length
-    );
-  }, 0);
+  const correctCount =
+    missions.reduce((sum, mission) => {
+      return (
+        sum +
+        mission.challenges.filter((challenge) =>
+          isChallengeCorrect(challenge, quizSelections, fillInputs),
+        ).length
+      );
+    }, 0) +
+    sectionPracticeDecks.reduce((sum, section) => {
+      return (
+        sum +
+        section.challenges.filter((challenge) =>
+          isChallengeCorrect(challenge, quizSelections, fillInputs),
+        ).length
+      );
+    }, 0);
 
   const answeredCount = scoredChallengeIds.filter((challengeId) => {
     if (quizSelections[challengeId]) {
@@ -250,6 +374,34 @@ function App() {
       isChallengeCorrect(challenge, quizSelections, fillInputs),
     ).length
   }/${selectedMission.challenges.length}`;
+  const selectedPracticeCorrect = selectedPracticeSection.challenges.filter((challenge) =>
+    isChallengeCorrect(challenge, quizSelections, fillInputs),
+  ).length;
+
+  useEffect(() => {
+    if (!selectedMissionSubsteps.some((step) => step.id === selectedSubstepId)) {
+      setSelectedSubstepId(
+        getDefaultMissionSubstepId(selectedMission, quizSelections, fillInputs),
+      );
+    }
+  }, [
+    fillInputs,
+    quizSelections,
+    selectedMission,
+    selectedMissionSubsteps,
+    selectedSubstepId,
+  ]);
+
+  useEffect(() => {
+    setPracticePage(0);
+  }, [selectedPracticeSection.id]);
+
+  function selectMission(mission: Mission) {
+    setSelectedMissionId(mission.id);
+    setSelectedSubstepId(
+      getDefaultMissionSubstepId(mission, quizSelections, fillInputs),
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -293,7 +445,7 @@ function App() {
             <div className="hero-actions">
               <button
                 className="primary-button hero-button"
-                onClick={() => setSelectedMissionId(nextMission.id)}
+                onClick={() => selectMission(nextMission)}
                 type="button"
               >
                 Continue {nextMission.title}
@@ -386,38 +538,63 @@ function App() {
                     const isNext = mission.id === nextMission.id;
                     const isUnlocked = globalIndex <= unlockedIndex;
                     const sideClass = index % 2 === 0 ? 'left' : 'right';
+                    const missionSubsteps = buildMissionSubsteps(
+                      mission,
+                      quizSelections,
+                      fillInputs,
+                    );
 
                     return (
-                      <button
-                        className={`path-step ${sideClass} ${
-                          state.complete ? 'complete' : ''
-                        } ${isActive ? 'active' : ''} ${
-                          isUnlocked ? 'unlocked' : 'future'
-                        }`}
-                        key={mission.id}
-                        onClick={() => setSelectedMissionId(mission.id)}
-                        type="button"
-                      >
-                        <span className="path-line" />
-                        <span className="path-orb">
-                          {state.complete ? '✓' : String(globalIndex + 1)}
-                        </span>
-                        <div className="step-card">
-                          <span className="step-tag">
-                            {isNext
-                              ? 'Next lesson'
-                              : state.complete
-                                ? 'Mastered'
-                                : isUnlocked
-                                  ? 'Ready'
-                                  : 'Coming up'}
+                      <div className={`path-node ${sideClass}`} key={mission.id}>
+                        <button
+                          className={`path-step ${sideClass} ${
+                            state.complete ? 'complete' : ''
+                          } ${isActive ? 'active' : ''} ${
+                            isUnlocked ? 'unlocked' : 'future'
+                          }`}
+                          onClick={() => selectMission(mission)}
+                          type="button"
+                        >
+                          <span className="path-line" />
+                          <span className="path-orb">
+                            {state.complete ? '✓' : String(globalIndex + 1)}
                           </span>
-                          <strong>{mission.title}</strong>
-                          <p>
-                            {mission.duration} · {mission.focus}
-                          </p>
-                        </div>
-                      </button>
+                          <div className="step-card">
+                            <span className="step-tag">
+                              {isNext
+                                ? 'Next lesson'
+                                : state.complete
+                                  ? 'Mastered'
+                                  : isUnlocked
+                                    ? 'Ready'
+                                    : 'Coming up'}
+                            </span>
+                            <strong>{mission.title}</strong>
+                            <p>
+                              {mission.duration} · {mission.focus}
+                            </p>
+                          </div>
+                        </button>
+
+                        {isActive ? (
+                          <div className={`subpath-cluster ${sideClass}`}>
+                            {missionSubsteps.map((step) => (
+                              <button
+                                className={`subpath-bubble ${step.kind} ${
+                                  step.done ? 'complete' : ''
+                                } ${
+                                  selectedSubstep.id === step.id ? 'active' : ''
+                                }`}
+                                key={step.id}
+                                onClick={() => setSelectedSubstepId(step.id)}
+                                type="button"
+                              >
+                                <span>{step.bubbleLabel}</span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
                     );
                   })}
                 </div>
@@ -456,20 +633,108 @@ function App() {
                 <span className="pill">Progress {currentMissionProgress}</span>
               </div>
 
-              <div className="lesson-callout">
-                <h3>Mission story</h3>
-                <p>{selectedMission.story}</p>
+              <div className="substep-row">
+                {selectedMissionSubsteps.map((step) => (
+                  <button
+                    className={`substep-chip ${
+                      selectedSubstep.id === step.id ? 'active' : ''
+                    } ${step.done ? 'complete' : ''}`}
+                    key={step.id}
+                    onClick={() => setSelectedSubstepId(step.id)}
+                    type="button"
+                  >
+                    <span>{step.bubbleLabel}</span>
+                    {step.title}
+                  </button>
+                ))}
               </div>
 
-              <div className="lesson-duo-grid">
-                <article>
-                  <h3>Learn it</h3>
-                  <p>{selectedMission.lesson}</p>
-                </article>
-                <article>
-                  <h3>Boss move</h3>
-                  <p>{selectedMission.bossMove}</p>
-                </article>
+              <div className="lesson-focus">
+                <div className="lesson-focus-head">
+                  <div>
+                    <p className="eyebrow">Focused step</p>
+                    <h3>{selectedSubstep.title}</h3>
+                  </div>
+                  <span className="tiny-badge">
+                    {selectedSubstep.bubbleLabel}
+                  </span>
+                </div>
+
+                {selectedSubstep.kind === 'brief' ? (
+                  <div className="focus-grid">
+                    <article className="focus-card">
+                      <h4>Why this mission matters</h4>
+                      <p>{selectedMission.story}</p>
+                    </article>
+                    <article className="focus-card">
+                      <h4>What you will practice</h4>
+                      <p>{selectedMission.focus}</p>
+                    </article>
+                  </div>
+                ) : null}
+
+                {selectedSubstep.kind === 'concept' ? (
+                  <article className="focus-card concept-card">
+                    <h4>Core explanation</h4>
+                    <p>{selectedMission.lesson}</p>
+                  </article>
+                ) : null}
+
+                {selectedSubstep.kind === 'boss' ? (
+                  <div className="focus-grid">
+                    <article className="focus-card boss-card">
+                      <h4>Boss move</h4>
+                      <p>{selectedMission.bossMove}</p>
+                    </article>
+                    <article className="focus-card">
+                      <h4>Exam alignment</h4>
+                      <p>{selectedMission.examWeight}</p>
+                    </article>
+                  </div>
+                ) : null}
+
+                {activeQuizChallenge ? (
+                  <QuizCard
+                    challenge={activeQuizChallenge}
+                    selected={quizSelections[activeQuizChallenge.id]}
+                    submitted={Boolean(quizSubmissions[activeQuizChallenge.id])}
+                    onSelect={(optionId) =>
+                      setQuizSelections((current) => ({
+                        ...current,
+                        [activeQuizChallenge.id]: optionId,
+                      }))
+                    }
+                    onSubmit={() =>
+                      setQuizSubmissions((current) => ({
+                        ...current,
+                        [activeQuizChallenge.id]: true,
+                      }))
+                    }
+                  />
+                ) : null}
+
+                {activeFillChallenge ? (
+                  <FillCard
+                    challenge={activeFillChallenge}
+                    submitted={Boolean(fillSubmissions[activeFillChallenge.id])}
+                    values={fillInputs[activeFillChallenge.id] ?? {}}
+                    onChange={(blankId, value) =>
+                      setFillInputs((current) => ({
+                        ...current,
+                        [activeFillChallenge.id]: {
+                          ...(current[activeFillChallenge.id] ?? {}),
+                          [blankId]: value,
+                        },
+                      }))
+                    }
+                    onSubmit={() =>
+                      setFillSubmissions((current) => ({
+                        ...current,
+                        [activeFillChallenge.id]: true,
+                      }))
+                    }
+                  />
+                ) : null}
               </div>
 
               <div className="topic-chip-row">
@@ -479,9 +744,57 @@ function App() {
                   </span>
                 ))}
               </div>
+            </section>
 
-              <div className="challenge-stack">
-                {selectedMission.challenges.map((challenge) =>
+            <section className="card practice-card">
+              <div className="practice-card-head">
+                <div>
+                  <p className="eyebrow">Section drill pack</p>
+                  <h2>{selectedPracticeSection.title}</h2>
+                </div>
+                <div className="practice-stat-block">
+                  <strong>
+                    {selectedPracticeCorrect}/{selectedPracticeSection.challenges.length}
+                  </strong>
+                  <p>completed in this section</p>
+                </div>
+              </div>
+
+              <p className="practice-note">{selectedPracticeSection.sourceNote}</p>
+
+              <div className="practice-controls">
+                <span className="pill">
+                  Page {practicePage + 1} / {practicePageCount}
+                </span>
+                <span className="pill">
+                  {selectedPracticeSection.challenges.length} total reps
+                </span>
+                <button
+                  className="secondary-button"
+                  disabled={practicePage === 0}
+                  onClick={() =>
+                    setPracticePage((current) => Math.max(0, current - 1))
+                  }
+                  type="button"
+                >
+                  Previous
+                </button>
+                <button
+                  className="secondary-button"
+                  disabled={practicePage >= practicePageCount - 1}
+                  onClick={() =>
+                    setPracticePage((current) =>
+                      Math.min(practicePageCount - 1, current + 1),
+                    )
+                  }
+                  type="button"
+                >
+                  Next
+                </button>
+              </div>
+
+              <div className="practice-stack">
+                {visiblePracticeChallenges.map((challenge) =>
                   challenge.type === 'quiz' ? (
                     <QuizCard
                       challenge={challenge}
