@@ -1,0 +1,585 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  color-scheme: light;
+  --bg: #fdf6e7;
+  --bg-layer: #fff2cf;
+  --ink: #142033;
+  --muted: #44536a;
+  --navy: #132239;
+  --coral: #ef7b45;
+  --teal: #0f8b8d;
+  --gold: #f6c453;
+  --grass: #88b04b;
+  --purple: #9d7dff;
+  --card: rgba(255, 251, 240, 0.88);
+  --border: rgba(20, 32, 51, 0.12);
+  --shadow: 0 22px 55px rgba(28, 42, 62, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: 'Space Grotesk', sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(246, 196, 83, 0.42), transparent 30%),
+    radial-gradient(circle at right center, rgba(15, 139, 141, 0.18), transparent 26%),
+    linear-gradient(180deg, #fffbef 0%, #f6ead1 55%, #f5dfc0 100%);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.app-shell {
+  position: relative;
+  overflow-x: hidden;
+}
+
+.background-grid {
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(19, 34, 57, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(19, 34, 57, 0.05) 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 28px 20px 40px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.2fr 0.95fr;
+  gap: 24px;
+  padding: 32px;
+  margin-bottom: 22px;
+}
+
+.eyebrow {
+  margin: 0 0 14px;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.65rem;
+  line-height: 1.8;
+  color: var(--teal);
+  text-transform: uppercase;
+}
+
+.hero h1,
+.section-heading h2,
+.mission-panel h2,
+.frq-card h2,
+.strategy-card h2 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 4.2rem);
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+}
+
+.hero-text,
+.support-copy,
+.story,
+.lesson-grid p,
+.frq-item p,
+.strategy-list,
+.mission-node p,
+.mentor-chip p,
+.mission-mentor p,
+.feedback,
+.blank-field span,
+.challenge-card h3,
+.challenge-card p {
+  color: var(--muted);
+}
+
+.hero-text {
+  max-width: 64ch;
+  margin: 18px 0 26px;
+  font-size: 1.06rem;
+  line-height: 1.65;
+}
+
+.hero-stats,
+.progress-grid,
+.lesson-grid,
+.frq-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.hero-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.hero-stats div,
+.progress-grid div {
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(20, 32, 51, 0.08);
+}
+
+.stat-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.hero-stats strong,
+.progress-grid strong {
+  font-size: 1.25rem;
+}
+
+.hero-party {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-content: center;
+}
+
+.mentor-chip,
+.mission-mentor {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 243, 214, 0.9));
+  border: 1px solid rgba(20, 32, 51, 0.08);
+}
+
+.mentor-chip strong,
+.mission-mentor strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.pixel-sprite {
+  display: grid;
+  flex-shrink: 0;
+}
+
+.pixel {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.dashboard,
+.final-row {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 22px;
+  margin-bottom: 22px;
+}
+
+.progress-card,
+.blueprint-card,
+.frq-card,
+.strategy-card {
+  padding: 24px;
+}
+
+.meter {
+  height: 16px;
+  margin: 18px 0 12px;
+  border-radius: 999px;
+  background: rgba(20, 32, 51, 0.08);
+  overflow: hidden;
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--coral), var(--gold), var(--teal));
+  animation: pulseWidth 1.2s ease;
+}
+
+@keyframes pulseWidth {
+  from {
+    width: 0;
+  }
+}
+
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pill,
+.tiny-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(20, 32, 51, 0.07);
+  color: var(--ink);
+  font-size: 0.84rem;
+}
+
+.pill.accent,
+.tiny-badge {
+  background: rgba(239, 123, 69, 0.12);
+  color: #9a3e15;
+}
+
+.tiny-badge.alt {
+  background: rgba(15, 139, 141, 0.12);
+  color: #0b6264;
+}
+
+.map-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 430px) minmax(0, 1fr);
+  gap: 22px;
+  margin-bottom: 22px;
+}
+
+.mission-map,
+.mission-panel {
+  padding: 24px;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.section-heading h2,
+.mission-panel h2,
+.frq-card h2,
+.strategy-card h2 {
+  font-size: clamp(1.6rem, 2.5vw, 2.6rem);
+}
+
+.mission-list {
+  display: grid;
+  gap: 12px;
+}
+
+.mission-node {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(20, 32, 51, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.mission-node:hover,
+.mission-node:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(15, 139, 141, 0.35);
+  box-shadow: 0 16px 30px rgba(20, 32, 51, 0.08);
+}
+
+.mission-node.active {
+  border-color: rgba(15, 139, 141, 0.45);
+  background: linear-gradient(
+    135deg,
+    rgba(15, 139, 141, 0.12),
+    rgba(255, 255, 255, 0.9)
+  );
+}
+
+.mission-node.complete .node-index {
+  background: var(--grass);
+  color: white;
+}
+
+.node-index,
+.node-xp {
+  align-self: start;
+  white-space: nowrap;
+}
+
+.node-index {
+  min-width: 42px;
+  padding: 10px 8px;
+  border-radius: 14px;
+  text-align: center;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.65rem;
+  background: var(--navy);
+  color: white;
+}
+
+.node-xp {
+  padding-top: 2px;
+  color: var(--coral);
+  font-weight: 700;
+}
+
+.story {
+  margin: 16px 0 20px;
+  font-size: 1.02rem;
+  line-height: 1.65;
+}
+
+.lesson-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 22px;
+}
+
+.lesson-grid article {
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(20, 32, 51, 0.08);
+}
+
+.lesson-grid h3,
+.challenge-card h3 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.challenge-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.challenge-card {
+  padding: 20px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 244, 226, 0.88));
+  border: 1px solid rgba(20, 32, 51, 0.08);
+}
+
+.challenge-topline {
+  margin-bottom: 12px;
+}
+
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.option-card {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(20, 32, 51, 0.08);
+  background: white;
+  cursor: pointer;
+  text-align: left;
+}
+
+.option-card span {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: rgba(20, 32, 51, 0.07);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.option-card.selected {
+  border-color: rgba(15, 139, 141, 0.4);
+  background: rgba(15, 139, 141, 0.08);
+}
+
+.option-card.correct {
+  border-color: rgba(136, 176, 75, 0.46);
+  background: rgba(136, 176, 75, 0.12);
+}
+
+.option-card.incorrect {
+  border-color: rgba(239, 123, 69, 0.4);
+  background: rgba(239, 123, 69, 0.1);
+}
+
+.challenge-actions {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.primary-button {
+  width: fit-content;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--navy), var(--teal));
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(15, 139, 141, 0.2);
+}
+
+.feedback {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.feedback.good {
+  color: #2f6d25;
+}
+
+.feedback.needs-work {
+  color: #99421d;
+}
+
+.feedback.muted {
+  color: var(--muted);
+}
+
+.code-snippet {
+  overflow-x: auto;
+  margin: 14px 0 0;
+  padding: 18px;
+  border-radius: 18px;
+  background: #132239;
+  color: #f6f6ee;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.96rem;
+  line-height: 1.6;
+}
+
+.blank-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.blank-field {
+  display: grid;
+  gap: 8px;
+}
+
+.blank-field input {
+  width: 100%;
+  padding: 13px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(20, 32, 51, 0.14);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
+}
+
+.frq-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.frq-item {
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(20, 32, 51, 0.08);
+}
+
+.frq-item strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.strategy-list {
+  margin: 16px 0 0;
+  padding-left: 18px;
+  line-height: 1.8;
+}
+
+@media (max-width: 1100px) {
+  .hero,
+  .dashboard,
+  .map-layout,
+  .final-row {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-party {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 740px) {
+  .app {
+    padding: 16px 12px 30px;
+  }
+
+  .hero,
+  .progress-card,
+  .blueprint-card,
+  .mission-map,
+  .mission-panel,
+  .frq-card,
+  .strategy-card {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .hero-stats,
+  .progress-grid,
+  .hero-party,
+  .option-grid,
+  .blank-grid,
+  .lesson-grid,
+  .frq-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-heading,
+  .mission-node {
+    grid-template-columns: 1fr;
+  }
+
+  .mission-node {
+    display: block;
+  }
+
+  .node-index,
+  .node-xp {
+    display: inline-flex;
+    margin-bottom: 10px;
+  }
+
+  .mission-mentor,
+  .mentor-chip {
+    align-items: flex-start;
+  }
+}
