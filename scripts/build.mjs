@@ -5,8 +5,8 @@ const htmlTemplate = await readFile('index.html', 'utf8');
 const builtHtml = htmlTemplate.replace(
   '<script type="module" src="/src/main.tsx"></script>',
   [
-    '<link rel="stylesheet" href="/assets/main.css" />',
-    '    <script type="module" src="/assets/main.js"></script>',
+    '<link rel="stylesheet" href="./assets/main.css" />',
+    '    <script type="module" src="./assets/main.js"></script>',
   ].join('\n'),
 );
 

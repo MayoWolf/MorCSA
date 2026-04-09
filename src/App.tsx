@@ -229,15 +229,19 @@ function App() {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(
-      storageKey,
-      JSON.stringify({
-        quizSelections,
-        quizSubmissions,
-        fillInputs,
-        fillSubmissions,
-      }),
-    );
+    try {
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          quizSelections,
+          quizSubmissions,
+          fillInputs,
+          fillSubmissions,
+        }),
+      );
+    } catch {
+      // Ignore storage failures so the UI still renders in restricted contexts.
+    }
   }, [fillInputs, fillSubmissions, quizSelections, quizSubmissions]);
 
   const selectedMentor = mentorRoster[selectedMission.mentor];

@@ -5,8 +5,8 @@ const htmlTemplate = await readFile('index.html', 'utf8');
 const devHtml = htmlTemplate.replace(
   '<script type="module" src="/src/main.tsx"></script>',
   [
-    '<link rel="stylesheet" href="/assets/main.css" />',
-    '    <script type="module" src="/assets/main.js"></script>',
+    '<link rel="stylesheet" href="./assets/main.css" />',
+    '    <script type="module" src="./assets/main.js"></script>',
   ].join('\n'),
 );
 
@@ -34,13 +34,15 @@ const ctx = await esbuild.context({
 });
 
 await ctx.watch();
+const host = '127.0.0.1';
+const port = 4173;
 const server = await ctx.serve({
   servedir: 'dist',
-  host: '127.0.0.1',
-  port: 4173,
+  host,
+  port,
 });
 
-console.log(`MorCSA dev server running at http://${server.host}:${server.port}`);
+console.log(`MorCSA dev server running at http://${host}:${port}`);
 
 const close = async () => {
   await ctx.dispose();
