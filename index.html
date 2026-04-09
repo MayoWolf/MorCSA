@@ -12,14 +12,26 @@
     />
     <title>MorCSA | APCSA Score-5 Quest</title>
     <script>
-      if (
-        window.location.protocol === 'file:' &&
-        !window.location.pathname.endsWith('/dist/index.html')
-      ) {
-        window.location.replace('./dist/index.html');
-      }
+      (function () {
+        var head = document.head;
+        var isFile = window.location.protocol === 'file:';
+
+        var style = document.createElement('link');
+        style.rel = 'stylesheet';
+        style.href = isFile ? './dist/assets/main.css' : '/src/styles.css';
+        head.appendChild(style);
+
+        var script = document.createElement('script');
+        if (isFile) {
+          script.defer = true;
+          script.src = './dist/assets/main.js';
+        } else {
+          script.type = 'module';
+          script.src = '/src/main.tsx';
+        }
+        head.appendChild(script);
+      })();
     </script>
-    <script type="module" src="/src/main.tsx"></script>
   </head>
   <body>
     <div id="root">
@@ -38,10 +50,7 @@
       >
         <h1 style="margin-top: 0">MorCSA</h1>
         <p>
-          If the app does not auto-open, launch it with <code>npm run dev</code>,
-          <code>npm run preview</code>, or open
-          <a href="./dist/index.html"><code>dist/index.html</code></a>
-          after building.
+          Loading MorCSA...
         </p>
       </div>
     </div>
