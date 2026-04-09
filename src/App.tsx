@@ -14,6 +14,7 @@ import {
   sectionPracticeDecks,
   type PracticeChallenge,
 } from './data/practiceDecks';
+import { getCedPracticeChallenges } from './data/cedPractice';
 import { lessonGuides } from './data/lessonGuides';
 import {
   cedSubunitCatalog,
@@ -249,6 +250,17 @@ function getLessonPracticeChallenges(lesson: JourneyLesson) {
   );
 }
 
+function getLessonSourceChallenges(lesson: JourneyLesson) {
+  return getLessonCedSubunits(lesson).flatMap((subunit) =>
+    getCedPracticeChallenges(subunit.code),
+  );
+}
+
+function getLessonCoreChallenges(lesson: JourneyLesson, mission: Mission) {
+  const sourceChallenges = getLessonSourceChallenges(lesson);
+  return sourceChallenges.length > 0 ? sourceChallenges : mission.challenges;
+}
+
 function buildLessonFlowSteps(
   lesson: JourneyLesson,
   mission: Mission,
@@ -256,17 +268,32 @@ function buildLessonFlowSteps(
   fillInputs: FillInputs,
 ): LessonFlowStep[] {
   const lessonPractice = getLessonPracticeChallenges(lesson);
-  const conceptSteps = getLessonCedSubunits(lesson).map((subunit) => ({
-    id: `${lesson.id}-concept-${subunit.code}`,
-    kind: 'concept' as const,
-    bubbleLabel: subunit.code,
-    title: `${subunit.code} ${subunit.title}`,
-    summary: subunit.explanation,
-    done: false,
-    lane: 'lesson' as const,
-    subunit,
-  }));
-  const checkpointSteps = mission.challenges.map((challenge, index) => ({
+  const lessonSubunitSteps = getLessonCedSubunits(lesson).flatMap((subunit) => {
+    const conceptStep: LessonFlowStep = {
+      id: `${lesson.id}-concept-${subunit.code}`,
+      kind: 'concept',
+      bubbleLabel: subunit.code,
+      title: `${subunit.code} ${subunit.title}`,
+      summary: subunit.explanation,
+      done: false,
+      lane: 'lesson',
+      subunit,
+    };
+    const sourceSteps = getCedPracticeChallenges(subunit.code).map((challenge, index) => ({
+      id: challenge.id,
+      kind: challenge.type,
+      bubbleLabel: challenge.type === 'quiz' ? `Q${index + 1}` : 'Fill',
+      title: challenge.prompt,
+      summary: `Source practice for ${subunit.code}. ${challenge.explanation}`,
+      done: isChallengeCorrect(challenge, quizSelections, fillInputs),
+      lane: challenge.type === 'quiz' ? ('checkpoint' as const) : ('drill' as const),
+      challenge,
+      subunit,
+    }));
+
+    return [conceptStep, ...sourceSteps];
+  });
+  const checkpointSteps = getLessonSourceChallenges(lesson).length > 0 ? [] : mission.challenges.map((challenge, index) => ({
     id: challenge.id,
     kind: challenge.type,
     bubbleLabel: challenge.type === 'quiz' ? `Q${index + 1}` : `Code ${index + 1}`,
@@ -297,7 +324,7 @@ function buildLessonFlowSteps(
       done: false,
       lane: 'lesson' as const,
     },
-    ...conceptSteps,
+    ...lessonSubunitSteps,
     ...checkpointSteps,
     ...drillSteps,
     {
@@ -491,16 +518,21 @@ function App() {
 
   const uniqueTrackedChallenges = useMemo(() => {
     const seen = new Set<string>();
-    return [
-      ...missions.flatMap((mission) => mission.challenges),
-      ...allJourneyLessons.flatMap((lesson) => getLessonPracticeChallenges(lesson)),
-    ].filter((challenge) => {
+    return allJourneyLessons
+      .flatMap((lesson) => {
+        const mission = getMissionById(lesson.missionId);
+        return [
+          ...getLessonCoreChallenges(lesson, mission),
+          ...getLessonPracticeChallenges(lesson),
+        ];
+      })
+      .filter((challenge) => {
       if (seen.has(challenge.id)) {
         return false;
       }
       seen.add(challenge.id);
       return true;
-    });
+      });
   }, [allJourneyLessons]);
 
   const answeredCount = uniqueTrackedChallenges.filter((challenge) => {
@@ -520,9 +552,10 @@ function App() {
     () =>
       allJourneyLessons.map((lesson) => {
         const mission = getMissionById(lesson.missionId);
+        const coreChallenges = getLessonCoreChallenges(lesson, mission);
         const practice = getLessonPracticeChallenges(lesson);
         const complete =
-          mission.challenges.every((challenge) =>
+          coreChallenges.every((challenge) =>
             isChallengeCorrect(challenge, quizSelections, fillInputs),
           ) &&
           practice.every((challenge) =>
@@ -550,7 +583,11 @@ function App() {
   const hearts = Math.max(
     1,
     5 -
-      selectedMission.challenges.reduce((sum, challenge) => {
+      selectedLessonChallengeSteps.reduce((sum, step) => {
+        const challenge = step.challenge;
+        if (!challenge) {
+          return sum;
+        }
         if (challenge.type === 'quiz') {
           if (!quizSubmissions[challenge.id]) {
             return sum;
@@ -900,13 +937,18 @@ function App() {
               <div className="lesson-path-rail">
                 {selectedUnitLessons.map((lesson, index) => {
                   const lessonCedSubunits = getLessonCedSubunits(lesson);
+                  const lessonMission = getMissionById(lesson.missionId);
+                  const lessonCoreChallenges = getLessonCoreChallenges(
+                    lesson,
+                    lessonMission,
+                  );
                   const complete =
                     lessonCompletion.find((item) => item.lesson.id === lesson.id)
                       ?.complete ?? false;
                   const lessonStops =
                     2 +
                     lessonCedSubunits.length +
-                    getMissionById(lesson.missionId).challenges.length +
+                    lessonCoreChallenges.length +
                     getLessonPracticeChallenges(lesson).length;
 
                   return (
@@ -938,7 +980,7 @@ function App() {
                             </span>
                           ))}
                           <span className="mini-stop">
-                            {getMissionById(lesson.missionId).challenges.length} checkpoints
+                            {lessonCoreChallenges.length} source checks
                           </span>
                           <span className="mini-stop">
                             {getLessonPracticeChallenges(lesson).length} drills
