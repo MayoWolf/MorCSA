@@ -6,7 +6,7 @@ const builtHtml = htmlTemplate.replace(
   '<script type="module" src="/src/main.tsx"></script>',
   [
     '<link rel="stylesheet" href="./assets/main.css" />',
-    '    <script type="module" src="./assets/main.js"></script>',
+    '    <script defer src="./assets/main.js"></script>',
   ].join('\n'),
 );
 
@@ -19,7 +19,7 @@ await esbuild.build({
   entryNames: '[name]',
   assetNames: '[name]',
   bundle: true,
-  format: 'esm',
+  format: 'iife',
   minify: true,
   sourcemap: false,
   jsx: 'automatic',

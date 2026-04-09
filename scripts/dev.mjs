@@ -6,7 +6,7 @@ const devHtml = htmlTemplate.replace(
   '<script type="module" src="/src/main.tsx"></script>',
   [
     '<link rel="stylesheet" href="./assets/main.css" />',
-    '    <script type="module" src="./assets/main.js"></script>',
+    '    <script defer src="./assets/main.js"></script>',
   ].join('\n'),
 );
 
@@ -20,7 +20,7 @@ const ctx = await esbuild.context({
   entryNames: '[name]',
   assetNames: '[name]',
   bundle: true,
-  format: 'esm',
+  format: 'iife',
   sourcemap: true,
   jsx: 'automatic',
   platform: 'browser',
