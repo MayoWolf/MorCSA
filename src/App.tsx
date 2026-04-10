@@ -14,7 +14,10 @@ import {
   sectionPracticeDecks,
   type PracticeChallenge,
 } from './data/practiceDecks';
-import { getCedPracticeChallenges } from './data/cedPractice';
+import {
+  getCedPracticeChallenges,
+  getCedTeachingMoment,
+} from './data/cedPractice';
 import { lessonGuides } from './data/lessonGuides';
 import {
   cedSubunitCatalog,
@@ -32,7 +35,7 @@ type QuizSelections = Record<string, string>;
 type QuizSubmissions = Record<string, boolean>;
 type FillInputs = Record<string, Record<string, string>>;
 type FillSubmissions = Record<string, boolean>;
-type MissionSubstepKind = 'brief' | 'concept' | 'boss' | 'quiz' | 'fill';
+type MissionSubstepKind = 'brief' | 'concept' | 'boss' | 'quiz' | 'fill' | 'quote';
 type AppPage = 'home' | 'pathway' | 'lesson';
 
 const storageKey = 'morcsa-progress-v1';
@@ -64,6 +67,9 @@ type LessonFlowStep = {
   lane: 'lesson' | 'checkpoint' | 'drill' | 'wrap';
   challenge?: PracticeChallenge;
   subunit?: CedSubunit;
+  quote?: string;
+  bridge?: string;
+  sourceLabel?: string;
 };
 
 type MentorProfile = (typeof mentorRoster)[keyof typeof mentorRoster];
@@ -269,6 +275,7 @@ function buildLessonFlowSteps(
 ): LessonFlowStep[] {
   const lessonPractice = getLessonPracticeChallenges(lesson);
   const lessonSubunitSteps = getLessonCedSubunits(lesson).flatMap((subunit) => {
+    const teachingMoment = getCedTeachingMoment(subunit.code);
     const conceptStep: LessonFlowStep = {
       id: `${lesson.id}-concept-${subunit.code}`,
       kind: 'concept',
@@ -290,8 +297,28 @@ function buildLessonFlowSteps(
       challenge,
       subunit,
     }));
+    const quoteStep: LessonFlowStep | undefined =
+      teachingMoment && sourceSteps.length > 0
+        ? {
+            id: `${lesson.id}-quote-${subunit.code}`,
+            kind: 'quote',
+            bubbleLabel: 'Quote',
+            title: `${subunit.code} Mentor Quote`,
+            summary: teachingMoment.bridge,
+            done: false,
+            lane: 'lesson',
+            subunit,
+            quote: teachingMoment.quote,
+            bridge: teachingMoment.bridge,
+            sourceLabel: teachingMoment.sourceLabel,
+          }
+        : undefined;
 
-    return [conceptStep, ...sourceSteps];
+    if (!quoteStep || sourceSteps.length < 2) {
+      return [conceptStep, ...sourceSteps, ...(quoteStep ? [quoteStep] : [])];
+    }
+
+    return [conceptStep, sourceSteps[0], quoteStep, ...sourceSteps.slice(1)];
   });
   const checkpointSteps = getLessonSourceChallenges(lesson).length > 0 ? [] : mission.challenges.map((challenge, index) => ({
     id: challenge.id,
@@ -313,6 +340,11 @@ function buildLessonFlowSteps(
     lane: 'drill' as const,
     challenge,
   }));
+  const guidedChallengeSteps = [
+    ...lessonSubunitSteps.filter((step) => step.challenge),
+    ...checkpointSteps,
+    ...drillSteps,
+  ];
 
   return [
     {
@@ -333,7 +365,7 @@ function buildLessonFlowSteps(
       bubbleLabel: 'Wrap',
       title: 'Lesson Wrap',
       summary: mission.bossMove,
-      done: [...checkpointSteps, ...drillSteps].every((step) => step.done),
+      done: guidedChallengeSteps.every((step) => step.done),
       lane: 'wrap' as const,
     },
   ] satisfies LessonFlowStep[];
@@ -1145,6 +1177,8 @@ function App() {
                         ? selectedMission.story
                         : selectedSubstep.kind === 'concept'
                           ? selectedSubstep.subunit?.explanation ?? selectedLessonGuide.coachIntro
+                          : selectedSubstep.kind === 'quote'
+                            ? selectedSubstep.bridge ?? selectedSubstep.summary
                           : selectedSubstep.kind === 'boss'
                             ? selectedMission.bossMove
                             : selectedSubstep.summary}
@@ -1231,6 +1265,38 @@ function App() {
                             <li key={item}>{item}</li>
                           ))}
                         </ul>
+                      </article>
+                    </div>
+                  </div>
+                ) : null}
+
+                {selectedSubstep.kind === 'quote' ? (
+                  <div className="teaching-stack">
+                    <article className="focus-card quote-card">
+                      <h4>Guide quote</h4>
+                      <blockquote className="mentor-quote">
+                        “{selectedSubstep.quote}”
+                      </blockquote>
+                      <p>{selectedSubstep.bridge ?? selectedSubstep.summary}</p>
+                      {selectedSubstep.sourceLabel ? (
+                        <span className="tiny-badge">{selectedSubstep.sourceLabel}</span>
+                      ) : null}
+                    </article>
+
+                    <div className="focus-grid">
+                      <article className="focus-card">
+                        <h4>Why it matters here</h4>
+                        <p>
+                          This quote sits between the source questions on purpose, so the
+                          learner gets a quick teaching reset before the next rep.
+                        </p>
+                      </article>
+                      <article className="focus-card">
+                        <h4>Carry into the next question</h4>
+                        <p>
+                          Use the quote as your rule of thumb on the next problem, then
+                          check whether your trace or method choice still fits it.
+                        </p>
                       </article>
                     </div>
                   </div>

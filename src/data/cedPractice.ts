@@ -8,6 +8,12 @@ export type CedPracticeBank = {
   challenges: PracticeChallenge[];
 };
 
+export type CedTeachingMoment = {
+  quote: string;
+  bridge: string;
+  sourceLabel: string;
+};
+
 type QuizSpec = {
   prompt: string;
   options: [string, string, string, string];
@@ -670,6 +676,103 @@ export const cedPracticeBanks: Record<string, CedPracticeBank> = {
   ),
 };
 
+export const cedTeachingMoments: Record<string, CedTeachingMoment> = {
+  '1.1': {
+    quote: 'Every step must be explicit.',
+    bridge:
+      'That is the whole mindset of early APCSA. If the step is not written, the computer will not infer it for you.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.2': {
+    quote: 'Always match the variable type with the value type.',
+    bridge:
+      'When students miss Unit 1 questions, it is often because they chose a type by syntax instead of by meaning.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.3': {
+    quote: 'String concatenation is left to right.',
+    bridge:
+      'That one tracing rule explains a lot of “Hi56” versus “11Hi” style APCSA multiple-choice traps.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.4': {
+    quote: 'The right side is evaluated first.',
+    bridge:
+      'Read assignment as “compute first, store second.” That habit keeps updates and Scanner input much easier to follow.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.5': {
+    quote: 'It truncates, not rounds.',
+    bridge:
+      'Whenever casting or integer division shows up, assume the exam is checking whether you noticed the lost decimal part.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.6': {
+    quote: 'Always evaluate the right side first.',
+    bridge:
+      'Compound assignment is still assignment, so Java still computes the expression before storing the new value.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.7': {
+    quote: 'Use them correctly.',
+    bridge:
+      'APIs save you work, but APCSA still expects you to know the method name, return type, and resulting range or behavior.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.8': {
+    quote: 'Comment why code exists.',
+    bridge:
+      'That is stronger than narrating every line. Good comments explain intent and design choices, not obvious syntax.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.9': {
+    quote: 'void means no return value.',
+    bridge:
+      'Method signatures are contracts. If the header says int or double, the body must actually return that kind of value.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.10': {
+    quote: 'No object is needed.',
+    bridge:
+      'That is the fastest way to separate static class methods from instance methods when a question mixes both on one page.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.11': {
+    quote: 'Most Math methods return double.',
+    bridge:
+      'That return-type detail matters because APCSA likes to test whether you kept the decimal or cast it away.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.12': {
+    quote: 'Objects bundle data and actions together.',
+    bridge:
+      'Once you see an object as state plus behavior, method calls and class design questions become much more natural.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.13': {
+    quote: 'Variables store references, not the actual object.',
+    bridge:
+      'That idea is what makes aliasing, null, and shared object access make sense later in the course.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.14': {
+    quote: 'substring excludes the end index.',
+    bridge:
+      'That single rule prevents a huge number of String and instance-method mistakes on APCSA.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.15': {
+    quote: 'indexOf returns -1 if not found.',
+    bridge:
+      'String manipulation is mostly careful indexing, so little return-value facts like this drive a lot of correct answers.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+};
+
 export function getCedPracticeChallenges(subunitCode: string): PracticeChallenge[] {
   return cedPracticeBanks[subunitCode]?.challenges ?? [];
+}
+
+export function getCedTeachingMoment(subunitCode: string) {
+  return cedTeachingMoments[subunitCode];
 }
