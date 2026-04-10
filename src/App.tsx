@@ -16,6 +16,7 @@ import {
 } from './data/practiceDecks';
 import {
   getCedPracticeChallenges,
+  getCedTeachingGuide,
   getCedTeachingMoment,
 } from './data/cedPractice';
 import { lessonGuides } from './data/lessonGuides';
@@ -525,6 +526,9 @@ function App() {
   const selectedSubstep =
     selectedLessonFlowSteps.find((step) => step.id === selectedSubstepId) ??
     selectedLessonFlowSteps[0];
+  const selectedCedTeachingGuide = selectedSubstep.subunit
+    ? getCedTeachingGuide(selectedSubstep.subunit.code)
+    : undefined;
   const activeQuizChallenge =
     selectedSubstep.challenge?.type === 'quiz' ? selectedSubstep.challenge : undefined;
   const activeFillChallenge =
@@ -1176,9 +1180,11 @@ function App() {
                       {selectedSubstep.kind === 'brief'
                         ? selectedMission.story
                         : selectedSubstep.kind === 'concept'
-                          ? selectedSubstep.subunit?.explanation ?? selectedLessonGuide.coachIntro
+                          ? selectedCedTeachingGuide?.overview ??
+                            selectedSubstep.subunit?.explanation ??
+                            selectedLessonGuide.coachIntro
                           : selectedSubstep.kind === 'quote'
-                            ? selectedSubstep.bridge ?? selectedSubstep.summary
+                            ? selectedSubstep.quote ?? selectedSubstep.bridge ?? selectedSubstep.summary
                           : selectedSubstep.kind === 'boss'
                             ? selectedMission.bossMove
                             : selectedSubstep.summary}
@@ -1219,55 +1225,78 @@ function App() {
                 ) : null}
 
                 {selectedSubstep.kind === 'concept' ? (
-                  <div className="teaching-stack">
-                    <article className="focus-card ced-topic-card">
-                      <h4>Official CED topic</h4>
-                      <strong>
-                        {selectedSubstep.subunit?.code} {selectedSubstep.subunit?.title}
-                      </strong>
-                      <p>{selectedSubstep.subunit?.explanation ?? selectedSubstep.summary}</p>
-                    </article>
-
-                    <article className="focus-card concept-card lesson-master-card">
-                      <h4>Coach explanation</h4>
-                      <p>{selectedLessonGuide.coachIntro}</p>
-                      <p>{selectedMission.lesson}</p>
-                    </article>
-
-                    <div className="focus-grid">
-                      <article className="focus-card">
-                        <h4>Mental model</h4>
-                        <p>{selectedLessonGuide.mentalModel}</p>
+                  selectedCedTeachingGuide ? (
+                    <div className="teaching-stack">
+                      <article className="focus-card ced-topic-card">
+                        <h4>From the teaching guide</h4>
+                        <strong>{selectedCedTeachingGuide.heading}</strong>
+                        <p>{selectedCedTeachingGuide.overview}</p>
+                        <span className="tiny-badge">
+                          {selectedCedTeachingGuide.sourceLabel}
+                        </span>
                       </article>
+
                       <article className="focus-card">
-                        <h4>Common trap</h4>
-                        <p>{selectedLessonGuide.commonMistake}</p>
+                        <h4>Direct explanation</h4>
+                        <p>{selectedCedTeachingGuide.detail}</p>
+                      </article>
+
+                      <article className="focus-card quote-card">
+                        <h4>Common trap from the guide</h4>
+                        <p>{selectedCedTeachingGuide.warning}</p>
                       </article>
                     </div>
-
-                    <article className="focus-card example-card">
-                      <h4>{selectedLessonGuide.workedExample.title}</h4>
-                      <pre className="code-snippet">
-                        <code>{selectedLessonGuide.workedExample.code.join('\n')}</code>
-                      </pre>
-                      <p>{selectedLessonGuide.workedExample.walkthrough}</p>
-                    </article>
-
-                    <div className="focus-grid">
-                      <article className="focus-card">
-                        <h4>Debug rule</h4>
-                        <p>{selectedLessonGuide.debugRule}</p>
+                  ) : (
+                    <div className="teaching-stack">
+                      <article className="focus-card ced-topic-card">
+                        <h4>Official CED topic</h4>
+                        <strong>
+                          {selectedSubstep.subunit?.code} {selectedSubstep.subunit?.title}
+                        </strong>
+                        <p>{selectedSubstep.subunit?.explanation ?? selectedSubstep.summary}</p>
                       </article>
-                      <article className="focus-card">
-                        <h4>Before you move on</h4>
-                        <ul className="teaching-list">
-                          {selectedLessonGuide.checklist.map((item) => (
-                            <li key={item}>{item}</li>
-                          ))}
-                        </ul>
+
+                      <article className="focus-card concept-card lesson-master-card">
+                        <h4>Coach explanation</h4>
+                        <p>{selectedLessonGuide.coachIntro}</p>
+                        <p>{selectedMission.lesson}</p>
                       </article>
+
+                      <div className="focus-grid">
+                        <article className="focus-card">
+                          <h4>Mental model</h4>
+                          <p>{selectedLessonGuide.mentalModel}</p>
+                        </article>
+                        <article className="focus-card">
+                          <h4>Common trap</h4>
+                          <p>{selectedLessonGuide.commonMistake}</p>
+                        </article>
+                      </div>
+
+                      <article className="focus-card example-card">
+                        <h4>{selectedLessonGuide.workedExample.title}</h4>
+                        <pre className="code-snippet">
+                          <code>{selectedLessonGuide.workedExample.code.join('\n')}</code>
+                        </pre>
+                        <p>{selectedLessonGuide.workedExample.walkthrough}</p>
+                      </article>
+
+                      <div className="focus-grid">
+                        <article className="focus-card">
+                          <h4>Debug rule</h4>
+                          <p>{selectedLessonGuide.debugRule}</p>
+                        </article>
+                        <article className="focus-card">
+                          <h4>Before you move on</h4>
+                          <ul className="teaching-list">
+                            {selectedLessonGuide.checklist.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </article>
+                      </div>
                     </div>
-                  </div>
+                  )
                 ) : null}
 
                 {selectedSubstep.kind === 'quote' ? (
@@ -1277,28 +1306,28 @@ function App() {
                       <blockquote className="mentor-quote">
                         “{selectedSubstep.quote}”
                       </blockquote>
-                      <p>{selectedSubstep.bridge ?? selectedSubstep.summary}</p>
+                      <p>
+                        {selectedCedTeachingGuide?.quoteContext ??
+                          selectedSubstep.bridge ??
+                          selectedSubstep.summary}
+                      </p>
                       {selectedSubstep.sourceLabel ? (
                         <span className="tiny-badge">{selectedSubstep.sourceLabel}</span>
                       ) : null}
                     </article>
 
-                    <div className="focus-grid">
-                      <article className="focus-card">
-                        <h4>Why it matters here</h4>
-                        <p>
-                          This quote sits between the source questions on purpose, so the
-                          learner gets a quick teaching reset before the next rep.
-                        </p>
-                      </article>
-                      <article className="focus-card">
-                        <h4>Carry into the next question</h4>
-                        <p>
-                          Use the quote as your rule of thumb on the next problem, then
-                          check whether your trace or method choice still fits it.
-                        </p>
-                      </article>
-                    </div>
+                    {selectedCedTeachingGuide ? (
+                      <div className="focus-grid">
+                        <article className="focus-card">
+                          <h4>Guide explanation</h4>
+                          <p>{selectedCedTeachingGuide.detail}</p>
+                        </article>
+                        <article className="focus-card">
+                          <h4>Guide warning</h4>
+                          <p>{selectedCedTeachingGuide.warning}</p>
+                        </article>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 

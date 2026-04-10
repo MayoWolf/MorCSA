@@ -14,6 +14,16 @@ export type CedTeachingMoment = {
   sourceLabel: string;
 };
 
+export type CedTeachingGuide = {
+  heading: string;
+  overview: string;
+  detail: string;
+  warning: string;
+  quote: string;
+  quoteContext: string;
+  sourceLabel: string;
+};
+
 type QuizSpec = {
   prompt: string;
   options: [string, string, string, string];
@@ -678,93 +688,301 @@ export const cedPracticeBanks: Record<string, CedPracticeBank> = {
 
 export const cedTeachingMoments: Record<string, CedTeachingMoment> = {
   '1.1': {
-    quote: 'Every step must be explicit.',
+    quote:
+      'Every step must be explicitly written, or the program will fail or behave incorrectly.',
     bridge:
-      'That is the whole mindset of early APCSA. If the step is not written, the computer will not infer it for you.',
+      "A common mistake is thinking computers 'understand intent.' They do not.",
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
   '1.2': {
     quote: 'Always match the variable type with the value type.',
     bridge:
-      'When students miss Unit 1 questions, it is often because they chose a type by syntax instead of by meaning.',
+      'A common mistake is assigning wrong types, like int x = 5.5;, which causes a compile error.',
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
   '1.3': {
-    quote: 'String concatenation is left to right.',
-    bridge:
-      'That one tracing rule explains a lot of “Hi56” versus “11Hi” style APCSA multiple-choice traps.',
+    quote:
+      'String concatenation is left to right: "Hi" + 5 + 6 becomes "Hi56", while 5 + 6 + "Hi" becomes "11Hi".',
+    bridge: 'This is a common AP trick.',
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
   '1.4': {
-    quote: 'The right side is evaluated first.',
+    quote: 'The right side is evaluated first, then stored in the variable.',
     bridge:
-      'Read assignment as “compute first, store second.” That habit keeps updates and Scanner input much easier to follow.',
+      'A common mistake is writing x + 5 = x;, which is invalid. Assignment always has the variable on the left.',
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
   '1.5': {
     quote: 'It truncates, not rounds.',
     bridge:
-      'Whenever casting or integer division shows up, assume the exam is checking whether you noticed the lost decimal part.',
+      'A tricky example: (int)(2.9 + 1.2) = 4, but (int)2.9 + (int)1.2 = 3. Order matters.',
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
   '1.6': {
-    quote: 'Always evaluate the right side first.',
+    quote: 'Order matters: x *= x + 1 means x = x * (x + 1).',
     bridge:
-      'Compound assignment is still assignment, so Java still computes the expression before storing the new value.',
+      'A common mistake is misunderstanding integer division: x /= 4 truncates results.',
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
   '1.7': {
-    quote: 'Use them correctly.',
+    quote:
+      'Math.random() returns a double from 0.0 to <1.0. To get integers, use (int)(Math.random()*n).',
     bridge:
-      'APIs save you work, but APCSA still expects you to know the method name, return type, and resulting range or behavior.',
+      'A common trap: (int)(Math.random()*10)+1 gives 1–10, not 0–9.',
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
   '1.8': {
-    quote: 'Comment why code exists.',
+    quote: 'Good practice is commenting why code exists, not what it does.',
     bridge:
-      'That is stronger than narrating every line. Good comments explain intent and design choices, not obvious syntax.',
+      'Comments explain code and are ignored by the compiler.',
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
   '1.9': {
-    quote: 'void means no return value.',
+    quote: 'void means no return value, while other types require return statements.',
     bridge:
-      'Method signatures are contracts. If the header says int or double, the body must actually return that kind of value.',
+      'A common mistake is mismatching parameter types when calling methods.',
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
   '1.10': {
-    quote: 'No object is needed.',
+    quote:
+      'Static methods are called using Class.method(), like Math.random(). No object is needed.',
     bridge:
-      'That is the fastest way to separate static class methods from instance methods when a question mixes both on one page.',
+      'A key concept is distinguishing static vs instance methods.',
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
   '1.11': {
-    quote: 'Most Math methods return double.',
+    quote: 'Most Math methods return double, even if inputs are integers.',
     bridge:
-      'That return-type detail matters because APCSA likes to test whether you kept the decimal or cast it away.',
+      'Casting may be needed when assigning results to int variables.',
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
   '1.12': {
-    quote: 'Objects bundle data and actions together.',
+    quote: 'Objects are instances of classes and store data + behavior.',
     bridge:
-      'Once you see an object as state plus behavior, method calls and class design questions become much more natural.',
+      'A key idea is that objects bundle data and actions together.',
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
   '1.13': {
-    quote: 'Variables store references, not the actual object.',
+    quote: 'Variables store references (memory addresses), not the actual object.',
     bridge:
-      'That idea is what makes aliasing, null, and shared object access make sense later in the course.',
+      'null means no object, and calling methods on null causes runtime errors.',
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
   '1.14': {
-    quote: 'substring excludes the end index.',
+    quote:
+      'substring(start, end) excludes the end index. For example, "robot".substring(1,3) = "ob".',
     bridge:
-      'That single rule prevents a huge number of String and instance-method mistakes on APCSA.',
+      'equals() compares content, unlike == which compares references.',
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
   '1.15': {
     quote: 'indexOf returns -1 if not found.',
     bridge:
-      'String manipulation is mostly careful indexing, so little return-value facts like this drive a lot of correct answers.',
+      'A common trap is off-by-one errors with indices.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+};
+
+export const cedTeachingGuides: Record<string, CedTeachingGuide> = {
+  '1.1': {
+    heading: '1.1 Algorithms',
+    overview:
+      'An algorithm is a step-by-step set of instructions to solve a problem. For example, making a sandwich involves ordered steps like getting bread, adding ingredients, and assembling. In programming, algorithms must be precise and unambiguous.',
+    detail:
+      'Java programs follow the process: write code -> compile -> run. The compiler converts Java into bytecode, which the JVM executes. Understanding this flow helps debug errors at different stages.',
+    warning:
+      "A common mistake is thinking computers 'understand intent.' They do not. Every step must be explicitly written, or the program will fail or behave incorrectly.",
+    quote:
+      'Every step must be explicitly written, or the program will fail or behave incorrectly.',
+    quoteContext:
+      "A common mistake is thinking computers 'understand intent.' They do not.",
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.2': {
+    heading: '1.2 Variables & Data Types',
+    overview:
+      'Variables store data, and each has a type such as int, double, or boolean. For example, int age = 16; stores a whole number, while double price = 9.99; stores decimals. The type determines valid operations.',
+    detail:
+      'Primitive types store actual values, while objects (like String) store references. For example, String name = "Wolf" creates an object. This distinction becomes critical later with objects.',
+    warning:
+      'A common mistake is assigning wrong types, like int x = 5.5;, which causes a compile error. Always match the variable type with the value type.',
+    quote: 'Always match the variable type with the value type.',
+    quoteContext:
+      'A common mistake is assigning wrong types, like int x = 5.5;, which causes a compile error.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.3': {
+    heading: '1.3 Expressions & Output',
+    overview:
+      'Expressions combine values and operators, following order of operations. For example, 3 + 4 * 2 evaluates to 11, not 14. Parentheses change evaluation order.',
+    detail:
+      'System.out.println() prints output and moves to a new line, while print() does not. For example, System.out.print("A"); System.out.print("B"); prints AB.',
+    warning:
+      'String concatenation is left to right: "Hi" + 5 + 6 becomes "Hi56", while 5 + 6 + "Hi" becomes "11Hi". This is a common AP trick.',
+    quote:
+      'String concatenation is left to right: "Hi" + 5 + 6 becomes "Hi56", while 5 + 6 + "Hi" becomes "11Hi".',
+    quoteContext: 'This is a common AP trick.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.4': {
+    heading: '1.4 Assignment & Input',
+    overview:
+      'Assignment updates variables using =, like x = x + 3. The right side is evaluated first, then stored in the variable. This allows tracking changes over time.',
+    detail:
+      'Using Scanner allows input: Scanner s = new Scanner(System.in); int x = s.nextInt();. This reads user input into variables.',
+    warning:
+      'A common mistake is writing x + 5 = x;, which is invalid. Assignment always has the variable on the left.',
+    quote: 'The right side is evaluated first, then stored in the variable.',
+    quoteContext:
+      'This allows tracking changes over time.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.5': {
+    heading: '1.5 Casting',
+    overview:
+      'Casting converts types, like (int)5.9 -> 5. It truncates, not rounds. This is very important for AP questions.',
+    detail:
+      'Integer division removes decimals: 7 / 2 = 3, but 7 / 2.0 = 3.5. Casting affects which type is used in calculations.',
+    warning:
+      'A tricky example: (int)(2.9 + 1.2) = 4, but (int)2.9 + (int)1.2 = 3. Order matters.',
+    quote: 'It truncates, not rounds.',
+    quoteContext:
+      'This is very important for AP questions.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.6': {
+    heading: '1.6 Compound Assignment',
+    overview:
+      'Compound operators combine math and assignment, like x += 3 meaning x = x + 3. These simplify repeated updates.',
+    detail:
+      'Order matters: x *= x + 1 means x = x * (x + 1). Always evaluate the right side first.',
+    warning:
+      'A common mistake is misunderstanding integer division: x /= 4 truncates results.',
+    quote:
+      'Order matters: x *= x + 1 means x = x * (x + 1).',
+    quoteContext: 'Always evaluate the right side first.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.7': {
+    heading: '1.7 APIs',
+    overview:
+      'APIs provide prebuilt methods like Math.random(). You do not need to implement them, just use them correctly.',
+    detail:
+      'Math.random() returns a double from 0.0 to <1.0. To get integers, use (int)(Math.random()*n).',
+    warning:
+      'A common trap: (int)(Math.random()*10)+1 gives 1-10, not 0-9.',
+    quote:
+      'Math.random() returns a double from 0.0 to <1.0.',
+    quoteContext:
+      'To get integers, use (int)(Math.random()*n).',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.8': {
+    heading: '1.8 Comments',
+    overview:
+      'Comments explain code and are ignored by the compiler. For example, // this prints hello.',
+    detail:
+      'Multi-line comments use /* ... */ and are useful for longer explanations.',
+    warning:
+      'Good practice is commenting why code exists, not what it does.',
+    quote: 'Good practice is commenting why code exists, not what it does.',
+    quoteContext:
+      'Comments explain code and are ignored by the compiler.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.9': {
+    heading: '1.9 Method Signatures',
+    overview:
+      'A method signature includes name, parameters, and return type. For example: public int add(int a, int b).',
+    detail:
+      'void means no return value, while other types require return statements.',
+    warning:
+      'A common mistake is mismatching parameter types when calling methods.',
+    quote:
+      'A method signature includes name, parameters, and return type.',
+    quoteContext:
+      'void means no return value, while other types require return statements.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.10': {
+    heading: '1.10 Class Methods',
+    overview:
+      'Static methods are called using Class.method(), like Math.random(). No object is needed.',
+    detail:
+      'Example: Math.abs(-5) returns 5. These methods belong to the class itself.',
+    warning:
+      'A key concept is distinguishing static vs instance methods.',
+    quote:
+      'Static methods are called using Class.method(), like Math.random(). No object is needed.',
+    quoteContext:
+      'These methods belong to the class itself.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.11': {
+    heading: '1.11 Math Class',
+    overview:
+      'Math provides useful methods like sqrt, pow, abs, max, min. For example, Math.sqrt(16) = 4.0.',
+    detail:
+      'Most Math methods return double, even if inputs are integers.',
+    warning:
+      'Casting may be needed when assigning results to int variables.',
+    quote: 'Most Math methods return double, even if inputs are integers.',
+    quoteContext:
+      'Casting may be needed when assigning results to int variables.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.12': {
+    heading: '1.12 Objects',
+    overview:
+      'Objects are instances of classes and store data + behavior. For example, String is a class and "hi" is an object.',
+    detail:
+      'Objects allow you to call methods like s.length().',
+    warning:
+      'A key idea is that objects bundle data and actions together.',
+    quote: 'Objects are instances of classes and store data + behavior.',
+    quoteContext:
+      'Objects allow you to call methods like s.length().',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.13': {
+    heading: '1.13 Instantiation',
+    overview:
+      'Instantiation uses new to create objects: String s = new String("hi");.',
+    detail:
+      'Variables store references (memory addresses), not the actual object.',
+    warning:
+      'null means no object, and calling methods on null causes runtime errors.',
+    quote:
+      'Variables store references (memory addresses), not the actual object.',
+    quoteContext:
+      'null means no object, and calling methods on null causes runtime errors.',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.14': {
+    heading: '1.14 Instance Methods',
+    overview:
+      'Instance methods are called on objects, like s.length(). They require an object to exist.',
+    detail:
+      'substring(start, end) excludes the end index. For example, "robot".substring(1,3) = "ob".',
+    warning:
+      'equals() compares content, unlike == which compares references.',
+    quote:
+      'substring(start, end) excludes the end index.',
+    quoteContext:
+      'For example, "robot".substring(1,3) = "ob".',
+    sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
+  },
+  '1.15': {
+    heading: '1.15 String Manipulation',
+    overview:
+      'String methods include substring, indexOf, length, toUpperCase, trim. These are heavily tested.',
+    detail:
+      'indexOf returns -1 if not found. substring can take one or two parameters.',
+    warning:
+      'A common trap is off-by-one errors with indices.',
+    quote: 'indexOf returns -1 if not found.',
+    quoteContext:
+      'substring can take one or two parameters.',
     sourceLabel: 'APCSA_Unit1_DETAILED_Teaching_Guide.pdf',
   },
 };
@@ -775,4 +993,8 @@ export function getCedPracticeChallenges(subunitCode: string): PracticeChallenge
 
 export function getCedTeachingMoment(subunitCode: string) {
   return cedTeachingMoments[subunitCode];
+}
+
+export function getCedTeachingGuide(subunitCode: string) {
+  return cedTeachingGuides[subunitCode];
 }
